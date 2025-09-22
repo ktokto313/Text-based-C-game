@@ -2,10 +2,7 @@
 #include "game.c"
 #include "explore.c"
 #include "combat.c"
-
-typedef struct {
-    
-} Game;
+#include "game_object.h"
 
 Game game;
 
