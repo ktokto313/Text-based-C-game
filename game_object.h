@@ -1,6 +1,8 @@
 // game.h
 typedef struct {
     int level;
+    int day;
+    int timeOfTheDay;
     Champion champion[3];
     int *map;
     int initialized;
@@ -15,6 +17,8 @@ typedef struct {
     int combatChance;
     int tradeChance;
     int minigameChance;
+
+    int maxTimeOfTheDay;
 } Config;
 
 typedef struct {
@@ -22,4 +26,4 @@ typedef struct {
     int maxHealth;
     int damage;
 
-} Champion
+} Champion;

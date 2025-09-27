@@ -28,7 +28,7 @@ void showMainMenu(Game * game) {
             switch (choice)
             {
                 case 1:
-                    doGameTick();
+                    doGameTick(game);
                     break;
                 case 2:
                     //This is manual save so autosave = 0

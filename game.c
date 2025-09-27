@@ -2,31 +2,55 @@
 #include <stdlib.h>
 
 void doTraining(Game * game) {
-	
+	int choice;
+	while (1) {
+		printf("Training menu: \n");
+		printf("1. Mock battle\n");
+		printf("2. Change formation\n");
+		printf("3. Exit\n");
+		printf("Your choice: ");
+		scanf("%d", &choice);
+		getchar();
+
+		switch (choice)
+		{
+		case 1:
+			createBattle(game);
+			break;
+		case 2:
+			editFormation(game);
+			break;
+		case 3:
+			return;
+		default:
+			printf("Please input a number in range 1-3");
+			break;
+		}
+	}	
 }
 
 void doGameTick(Game * game){
-	int choide;
+	int choice;
 	while(1){
 		if (game->level == 0) {
-			printf("\n====MAIN MENU (Day %d) ===\n", day);
+			printf("\n====MAIN MENU (Day %d) ===\n", game->day);
 			printf("1. Shop\n");
 			printf("2. Di chuyen\n");
 			printf("3. Huan luyen\n");
 			printf("4. Nghi ngoi\n");
 			printf("5. Thoat\n");
 			printf("Chon: ");
-			scanf("%d, &choice");
+			scanf("%d", &choice);
 			
 			switch(choice){
 				case 1:
-					openShop();
+					openShop(game);
 					break;
 			    case 2:
-			    	move();
+			    	move(game);
 			    	break;
 			    case 3:
-			    	doTraining();
+			    	doTraining(game);
 			    	break;
 			    case 4:
 			    	rest();
@@ -37,35 +61,35 @@ void doGameTick(Game * game){
 					printf("Lua chon khong hop le.\n");
 			}
 		} else {
-		 printf("\n=== LUA CHON HANH DONG ===\n");
-        printf("1. Kham pha\n");
-        printf("2. Di chuyen\n");
-        printf("3. Bien ve\n");
-        printf("4. Menu\n");
-        printf("5. Thoat\n");
-        printf("Nhap lua chon: ");
-        scanf("%d", &choice);
+			printf("\n=== LUA CHON HANH DONG ===\n");
+			printf("1. Kham pha\n");
+			printf("2. Di chuyen\n");
+			printf("3. Bien ve\n");
+			printf("4. Thoat\n");
+			printf("Nhap lua chon: ");
+			scanf("%d", &choice);
 
-        switch (choice) {
-            case 1:
-                printf("-> Luong kham pha\n");
-                break;
-            case 2:
-                printf("-> Luong di chuyen\n");
-                break;
-            case 3:
-                printf("-> +1 buoi + luong di chuyen\n");
-                break;
-            case 4:
-                printf("-> Luong main menu\n");
-                break;
-            case 5:
-                printf("Thoat chuong trinh.\n");
-                return 0;
-            default:
-                printf("Lua chon khong hop le, vui long nhap lai.\n");
-        }
-    }
+			switch (choice) {
+				case 1:
+					explore(game);
+					break;
+				case 2:
+					move(game);
+					break;
+				case 3:
+					if (game->timeOfTheDay < game->config.maxTimeOfTheDay) {
+						game->timeOfTheDay++;
+						teleport(game, 0);	
+					} else {
+						printf("Can teleport home when it's night time");
+					}
+					break;
+				case 4:
+					return;
+				default:
+					printf("Lua chon khong hop le, vui long nhap lai.\n");
+			}
+		}
 	}
 	return 0;
 }
