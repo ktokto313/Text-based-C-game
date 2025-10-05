@@ -42,7 +42,7 @@ int shopSize = 4;
 		printf("%d. thoat\n", invSize + 1);
 	}
 	// mua do
-	viod buyItem(){
+	void buyItem(){
 		int choide;
 		while(1){
 			showShop();
@@ -52,11 +52,11 @@ int shopSize = 4;
 			if (choice == shopSize + 1){
 				break;
 			}
-			if(choide < 1 || choice > shopSize){
+			if(choice < 1 || choice > shopSize){
 				printf("Lua chon khong hop le!\n");
 				continue;
 			}
-			Item it = shopItém[choice - 1];
+			Item it = shopItems[choice - 1];
 			if(gold >= it.price){
 				gold -= it.price;
 				inventory[InvSize++] == it;
@@ -82,36 +82,43 @@ int shopSize = 4;
 				printf("Lua chon khong hop le!\n");
 				continue;
 			}
-			Item it = inventory[choice - 1];
-			gold += it.price / 2;
-			printf("Ban da ban %s, nhan %d Gold (Tong : %d)\n", it.name, it.price / 2, gold);
-			
+			continue;
+}
+            Item it = inventory[choice - 1];
+            int goldEarned = it.price * game->config.sellValue;  
+            gold += goldEarned
 			for (int i = choice - 1; i < invSize - 1; i++){
 				inventory[i] = inventory[i + 1];
 			}
 			invSize--;
 		}
 	}
-	int main (){
-		int choice;
-		while(1){
-			printf("\n=======SHOP MENU=======\n");
-			printf("1. Mua do\n");
-			printf("2. Ban do\n");
-			printf("3. Thoat\n");
-			printf("Lua chon: ");
-			scanf ("%d\n", &choice);
-			
-			switch(choice){
-				case 1: buyItem();
-				break;
-				case 2: sellItem();
-				break;
-				case 3:
-					printf("Thoat shop . Bye!\n");
-					return 0;
-				default: printf("Lua chon khong hop le!\n");
-			}
+	void openShop(Game *game) {
+    int choice;
+
+    while (1) {
+        printf("\n======= SHOP MENU =======\n");
+        printf("1. Mua do\n");
+        printf("2. Ban do\n");
+        printf("3. Thoat\n");
+        printf("Lua chon: ");
+        scanf("%d", &choice);
+            switch (choice) {
+    case 1:
+        buyItem(shopItems, shopSize, inventory, &invSize, &gold);
+        break;
+
+    case 2:
+        sellItem(inventory, &invSize, &gold);
+        break;
+
+    case 3:
+        printf("Thoat shop. Bye!\n");
+        return 0;
+
+    default:
+        printf("Lua chon khong hop le!\n");
+}
 		}
 		return 0;
 	}
