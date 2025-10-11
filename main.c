@@ -10,69 +10,83 @@ int main() {
     Game game;
     game.initialized = 0;
     showMainMenu(&game);
+    return 0;
 }
 
 void showMainMenu(Game * game) {
-    printf("Welcome to our game. This is the main menu.");
-    int choice;
-    while (1) {
-        // Game is already running, add new option
-        if (game->initialized) {
-            printf("1. Continue");
-            printf("2. Save game");
-            printf("3. View stats");
-            printf("4. New game");
-            printf("5. Load game");
-            printf("6. Exit");
-            choice = scanf("%d", &choice);
-            getchar();
-
-            switch (choice)
-            {
-                case 1:
-                    doGameTick(game);
-                    break;
-                case 2:
-                    //This is manual save so autosave = 0
-                    saveGame(game, 0);
-                    break;
-                case 3:
-                    viewStats(game);
-                    break;
-                case 4:
-                    initGame(game);
-                    break;
-                case 5:
-                    loadGame(game);
-                    break;
-                case 6:
-                    return;
-                default:
-                    printf("Please input a number in range of 1-6");
-            }
-        } else {
-            printf("1. New game");
-            printf("2. Load game");
-            printf("3. Exit");
-            choice = scanf("%d", &choice);
-            getchar();
-
-            switch (choice)
-            {
-                case 1:
-                    initGame(game);
-                    doGameTick(game);
-                    break;
-                case 2:
-                    loadGame(game);
-                    doGameTick(game);
-                    break;
-                case 3:
-                    return;
-                default:
-                    printf("Please input a number in range of 1-3");
-            }
-        }
-
-    }
-}
+   int choice;
+   printf ("=================================\n");
+   printf("   WELCOME TO OUR ADVENTURE GAME   \n");
+   printf("==================================\n");
+   
+   while(1){
+   	if(game -> initializedd){
+   		printf("\n-------------MAIN MENU ------------\n");
+   		printf("1.Continue\n");
+   		printf("2. Save game\n");
+   		printf("3. View stats\n");
+   		printf("4. New game\n");
+   		printf("5.Load game\n");
+   		printf("6.Exit\n");
+   		printf("-------------------------------------\n");
+   		printf("Enter your choide: ");
+   		
+   		if(scanf("%d", &choice) != 1){
+   			printf("Invalid input. Please enter a number.\n");
+   			while(getchar() != '\n');
+   			continue;
+		   }
+		   switch(choice){
+		   	case 1:
+		   		doGameTick(game);
+		   		break;
+		   	case 2:
+		   		saveGame(game, 0);
+		   		break;
+		   	case 3:
+		   		viewStats(game);
+		   		break;
+		   	case 4:
+		   		initGame(game);
+		   		break;
+		   	case 5:
+		   		loadGame();
+				break;
+			case 6:
+				printf("Goodbye ! Thanks for playing!\n");
+				return;
+			default:
+				printf("Please input a number in rang 1-5.\n");
+		   }
+	    }
+		   else {
+		   	printf("\n============MAIN MENU-------------\n");
+		   	printf("1. New game\n");
+		   	printf("2. Load game\n");
+		   	printf("3. Exit\n");
+		   	printf("------------------------------------\n");
+		   	printf("Enter your choice: ");
+		   	
+		   	if(scanf("%d", &choice) != 1){
+		   		printf("Invalid input. Please enter a number.\n");
+		   		while(getchar() != '\n');
+		   		continue;
+			   }
+			   switch(choice){
+			   	case 1:
+			   		initGame(game);
+			   		doGameTick(game);
+			   		break;
+			   	case 2:
+			   		loadGame(game);
+			   		doGameTick(game);
+			   		break;
+			   	case 3:
+			   		printf("Goodbye! Thanks for playing!\n");
+			   		return;
+			   	default:
+			   		printf("Please input a number in range 1-3.\n");
+			   }
+		   }
+	   }
+   }
