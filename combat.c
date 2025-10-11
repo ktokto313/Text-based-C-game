@@ -129,10 +129,7 @@ void initCombat(Game *game, Monster enemies[], int enemyCount) {
                     int targetIdx = possibleTargets[randIndex];
                     Champion *target = &game->champion[targetIdx];
                                         int enemyAction = rand() % 100;
-                    if (enemyAction < 20) {
-                        printf("\n%s uses a special ability!\n", enemy->name);
-                        useSkill((Champion *)enemy, (void *)game->champion, ALLY_COUNT, 0);
-                    } else {
+                 else {
                     int dmg = enemy->damage;
                     target->health -= dmg;
                     if (target->health < 0) target->health = 0;
@@ -152,7 +149,6 @@ void initCombat(Game *game, Monster enemies[], int enemyCount) {
     if (combatStatus == 2) {
         printf("\n=== DEFEAT ===\n");
         printf("All champions are defeated!\n");
-        printf("You must reload your last save manually.\n");
     } else if (combatStatus == 1) {
         printf("\n=== VICTORY ===\n");
         printf("All monsters are defeated!\n");
