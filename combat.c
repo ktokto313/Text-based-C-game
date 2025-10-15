@@ -467,6 +467,33 @@ int selectTarget(Monster enemies[], int enemyCount) {
         return target;
     }
 }
+int selectTarget(Monster enemies[], int enemyCount) {
+    while (1) {
+        printf("\n--- Select Target ---\n");
+        int i;
+        for (i = 0; i < enemyCount; i++) {
+            if (enemies[i].health > 0) {
+                printf("[%d] %s (HP: %d/%d)\n", 
+                       i + 1, enemies[i].name, 
+                       enemies[i].health, enemies[i].maxHealth);
+            }
+        }
+        printf("[0] Cancel\n");
+        printf("Select: ");
+        int choice;
+        if (scanf("%d", &choice) != 1) {
+            while (getchar() != '\n');
+            printf("Invalid input.\n");
+            continue;
+        } 
+        if (choice == 0) return -1;
+        choice--;
+        if (choice >= 0 && choice < enemyCount && enemies[choice].health > 0) {
+            return choice;
+        }
+        printf("Invalid target!\n");
+    }
+}
 void viewStatsMenu(Game *game, Monster enemies[], int enemyCount) {
     while (1) {
         printf("\n=== VIEW STATS ===\n[1] View All Champions\n[2] View Monster\n[0] Back\nChoice: ");
