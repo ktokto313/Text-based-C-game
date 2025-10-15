@@ -5,149 +5,159 @@
 #include "explore.c"
 #include "combat.c"
 #include "game_object.h"
+typedef struct {
+    int initialized;
+} Game;
 
-void showMainMenu(Game * game);
+// Khai báo các hàm
+void showMainMenu(Game *game);
 void adminMenu();
+void testerMenu();
 
 int main() {
+    int modeChoice;
     Game game;
     game.initialized = 0;
-    showMainMenu(&game);
+
+    while (1) {
+        printf("\n====================================\n");
+        printf("     WELCOME TO OSG ADVENTURE GAME  \n");
+        printf("====================================\n");
+        printf("Select mode:\n");
+        printf("1. Admin mode\n");
+        printf("2. Tester mode\n");
+        printf("3. Main game\n");
+        printf("0. Exit\n");
+        printf("------------------------------------\n");
+        printf("Enter your choice: ");
+        scanf("%d", &modeChoice);
+
+	    switch(modeChoice) {
+	    	case 1:
+	            adminMenu();
+	            continue;
+	        case 2:
+	            game->isTester = 1;
+	            break;
+	        case 0:
+	            printf("Goodbye! Thanks for playing!\n");
+	            return 0; 
+	        default:
+	            printf("Invalid choice! Please choose 0–3.\n");
+	            continue;
+		}
+            
+        showMainMenu(&game);
+    }
     return 0;
 }
 
-void showMainMenu(Game * game) {
-   int choice;
-   printf ("=================================\n");
-   printf("   WELCOME TO OUR ADVENTURE GAME   \n");
-   printf("==================================\n");
-   
-   while(1){
-   	if(game -> initializedd){
-   		printf("\n-------------MAIN MENU ------------\n");
-   		printf("1.Continue\n");
-   		printf("2. Save game\n");
-   		printf("3. View stats\n");
-   		printf("4. New game\n");
-   		printf("5.Load game\n");
-   		printf("6.Exit\n");
-   		printf("7.Admin Mode\n");
-   		printf("-------------------------------------\n");
-   		printf("Enter your choide: ");
-   		
-   		if(scanf("%d", &choice) != 1){
-   			printf("Invalid input. Please enter a number.\n");
-   			while(getchar() != '\n');
-   			continue;
-		   }
-		   switch(choice){
-		   	case 1:
-		   		doGameTick(game);
-		   		break;
-		   	case 2:
-		   		saveGame(game, 0);
-		   		break;
-		   	case 3:
-		   		viewStats(game);
-		   		break;
-		   	case 4:
-		   		initGame(game);
-		   		break;
-		   	case 5:
-		   		loadGame();
-				break;
-			case 6:
-				printf("Goodbye ! Thanks for playing!\n");
-				return;
-			case 7:
-				adminMenu();
-				break;
-			default:
-				printf("Please input a number in rang 1-5.\n");
-		   }
-	    }
-		   else {
-		   	printf("\n============MAIN MENU-------------\n");
-		   	printf("1. New game\n");
-		   	printf("2. Load game\n");
-		   	printf("3. Exit\n");
-		   	printf("------------------------------------\n");
-		   	printf("Enter your choice: ");
-		   	
-		   	if(scanf("%d", &choice) != 1){
-		   		printf("Invalid input. Please enter a number.\n");
-		   		while(getchar() != '\n');
-		   		continue;
-			   }
-			   switch(choice){
-			   	case 1:
-			   		initGame(game);
-			   		doGameTick(game);
-			   		break;
-			   	case 2:
-			   		loadGame(game);
-			   		doGameTick(game);
-			   		break;
-			   	case 3:
-			   		printf("Goodbye! Thanks for playing!\n");
-			   		return;
-			   	default:
-			   		printf("Please input a number in range 1-3.\n");
-			   }
-		   }
-	   }
-   }
-void adminMenu(){
-	char password[20];
-	int choice;
-	
-	printf("\n====ADMIN LOGIN====\n");
-	printf("Enter admin password!\n");
-	return;
-	
-	if(strcmp(password, "admin123") != 0){
-		printf("Incorrect password!\n");
-		return;
-	}
-	
-	while(1){
-		printf("\n=======ADMIN MENU========\n");
-		printf("1.View all saved games\n");
-		printf("2.Delete a save file\n");
-		printf("3.View system info\n");
-		printf("4.Back to main menu\n");
-		printf("Enter your choice: ");
-		
-		if(scanf("%d", &choice) != 1){
-			printf("Invalid input!\n");
-			while(getchar()!= '\n');
-			continue;
-		}
-		
-		switch(choice){
-			case 1:
-				printf("\n[List of save games]\n");
-				printf("-save1.dat\n-save2.dat\n");
-				break;
-			case 2:{
-				break;
-				char filename[50];
-				printf("Enter file name to delete:");
-				scanf("%s", file name);
-				if(remove(filename) == 0)
-				printf("Deleted '%s' successfully!\n", filename);
-				else
-				printf("Failed to delete 'S' !n", filename);
-				break;
-		}
-		    case 3:
-		    	printf("\nGame version: 1.0\nCreated by: OSG group\n\n");
-		    	break;
-		    case 4:
-		    	printf("Returning to main menu...\n");
-		    	return;
-		    default:
-		    	printf("Invalid choice! Please choose 1-4.\n");
-	    }
+void showMainMenu(Game *game) {
+    int choice;
+
+    if (game->initialized) {
+        while (1) {
+            printf("\n------------- MAIN MENU ------------\n");
+            printf("1. Continue\n");
+            printf("2. Save game\n");
+            printf("3. View stats\n");
+            printf("4. New game\n");
+            printf("5. Load game\n");
+            printf("6. Exit to Mode Selection\n");
+            printf("7. Admin Mode\n");
+            printf("------------------------------------\n");
+            printf("Enter your choice: ");
+            scanf("%d", &choice);
+
+            if (choice == 1) {
+                printf("Continuing game...\n");
+            } 
+            else if (choice == 2) {
+                printf("Saving game...\n");
+            } 
+            else if (choice == 3) {
+                printf("Showing player stats...\n");
+            } 
+            else if (choice == 4) {
+                printf("Starting new game...\n");
+                game->initialized = 1;
+            } 
+            else if (choice == 5) {
+                printf("Loading saved game...\n");
+                game->initialized = 1;
+            } 
+            else if (choice == 6) {
+                printf("Returning to Mode Selection...\n");
+                return;
+            } 
+            else if (choice == 7) {
+                adminMenu();
+            } 
+            else {
+                printf("Please input a number in range 1–7.\n");
+            }
+        }
+    } 
+
+    else {
+        while (1) {
+            printf("\n========== MAIN GAME MENU ==========\n");
+            printf("1. New game\n");
+            printf("2. Load game\n");
+            printf("3. Back to mode selection\n");
+            printf("------------------------------------\n");
+            printf("Enter your choice: ");
+            scanf("%d", &choice);
+
+            if (choice == 1) {
+                printf("Starting new game...\n");
+                game->initialized = 1;
+            } 
+            else if (choice == 2) {
+                printf("Loading saved game...\n");
+                game->initialized = 1;
+            } 
+            else if (choice == 3) {
+                printf("Returning to mode selection...\n");
+                return;
+            } 
+            else {
+                printf("Invalid choice! Please choose 1–3.\n");
+            }
+        }
+    }
+}
+
+
+void adminMenu() {
+    int choice;
+    while (1) {
+        printf("\n========== ADMIN MENU ==========\n");
+        printf("1. View all saved games\n");
+        printf("2. Delete save file\n");
+        printf("3. Back to mode selection\n");
+        printf("--------------------------------\n");
+        printf("Enter your choice: ");
+        scanf("%d", &choice);
+
+        if (choice == 1) {
+            printf("[Save files list]\n- save1.dat\n- save2.dat\n");
+        } 
+        else if (choice == 2) {
+            char filename[50];
+            printf("Enter file name to delete: ");
+            scanf("%s", filename);
+            if (remove(filename) == 0)
+                printf("File '%s' deleted successfully!\n", filename);
+            else
+                printf("Failed to delete '%s'.\n", filename);
+        } 
+        else if (choice == 3) {
+            printf("Returning to mode selection...\n");
+            return;
+        } 
+        else {
+            printf("Invalid choice! Please choose 1–3.\n");
+        }
     }
 }
