@@ -470,12 +470,16 @@ int selectTarget(Monster enemies[], int enemyCount) {
 int selectTarget(Monster enemies[], int enemyCount) {
     while (1) {
         printf("\n--- Select Target ---\n");
-        int i;
-        for (i = 0; i < enemyCount; i++) {
+        int aliveMap[enemyCount];
+        int counter = 0;
+        for (int i = 0; i < enemyCount; i++) {
             if (enemies[i].health > 0) {
+                aliveMap[i] = 1;
                 printf("[%d] %s (HP: %d/%d)\n", 
-                       i + 1, enemies[i].name, 
+                       ++counter, enemies[i].name, 
                        enemies[i].health, enemies[i].maxHealth);
+            } else {
+                aliveMap[i] = 0;
             }
         }
         printf("[0] Cancel\n");
@@ -485,13 +489,14 @@ int selectTarget(Monster enemies[], int enemyCount) {
             while (getchar() != '\n');
             printf("Invalid input.\n");
             continue;
-        } 
-        if (choice == 0) return -1;
-        choice--;
-        if (choice >= 0 && choice < enemyCount && enemies[choice].health > 0) {
-            return choice;
         }
-        printf("Invalid target!\n");
+        if (choice == 0) return -1;
+        int target = findBinaryMapping(aliveMap, choice - 1, enemyCount);
+        if (target == -1) {
+            printf("Invalid target!\n");
+            continue;
+        }
+        return target;
     }
 }
 void viewStatsMenu(Game *game, Monster enemies[], int enemyCount) {
