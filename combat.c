@@ -395,7 +395,6 @@ int initCombat(Game *game) {
                 printf("Invalid choice.\n");
                 break;
         }
-        
         while (monsterIndex < enemyCount && localEnemies[monsterIndex].health <= 0) {
             monsterIndex++;
         }
@@ -502,7 +501,7 @@ int selectTarget(Monster enemies[], int enemyCount) {
         if (target == -1) {
             printf("Invalid target!\n");
             continue;
-        }
+        }        
         return target;
     }
 }
