@@ -1,15 +1,14 @@
-#include "fileio.c"
-#include <string>
-#include "stdio.h"
-#include "game.c"
-#include "explore.c"
-#include "combat.c"
+#include <stdio.h>
+#include "fileio.h"
+#include "game.h"
+#include "explore.h"
+#include "combat.h"
 #include "game_object.h"
-typedef struct {
-    int initialized;
-} Game;
+#include "character.h"
+#include "movement.h"
+#include "cJSON.h"
 
-// Khai báo các hàm
+// Khai bï¿½o cï¿½c hï¿½m
 void showMainMenu(Game *game);
 void adminMenu();
 void testerMenu();
@@ -37,13 +36,13 @@ int main() {
 	            adminMenu();
 	            continue;
 	        case 2:
-	            game->isTester = 1;
+	            game.isTester = 1;
 	            break;
 	        case 0:
 	            printf("Goodbye! Thanks for playing!\n");
 	            return 0; 
 	        default:
-	            printf("Invalid choice! Please choose 0–3.\n");
+	            printf("Invalid choice! Please choose 0ï¿½3.\n");
 	            continue;
 		}
             
@@ -94,7 +93,7 @@ void showMainMenu(Game *game) {
                 adminMenu();
             } 
             else {
-                printf("Please input a number in range 1–7.\n");
+                printf("Please input a number in range 1-7.\n");
             }
         }
     } 
@@ -122,7 +121,7 @@ void showMainMenu(Game *game) {
                 return;
             } 
             else {
-                printf("Invalid choice! Please choose 1–3.\n");
+                printf("Invalid choice! Please choose 1ï¿½3.\n");
             }
         }
     }
@@ -157,7 +156,7 @@ void adminMenu() {
             return;
         } 
         else {
-            printf("Invalid choice! Please choose 1–3.\n");
+            printf("Invalid choice! Please choose 1-3.\n");
         }
     }
 }

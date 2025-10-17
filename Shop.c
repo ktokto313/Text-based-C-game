@@ -1,46 +1,38 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
+#include "game_object.h"
 
-// cau trúc item
-typedef struct {
-    char name[30];
-    int price;
-} Item;
-
-// Cau trúc game chia toàn bo du lieu (dóng gói)
-typedef struct {
-    Item shopItems[10];
-    int shopSize;
-
-    Item inventory[10];
-    int invSize;
-
-    int gold;
-} Game;
-
-// Hien thi danh sách trong shop
+// Show item currently on sale in shop
 void showShop(Game *game) {
     printf("\n======== SHOP ========\n");
-    for (int i = 0; i < game->shopSize; i++) {
-        printf("%d. %s - %d Gold\n", i + 1, game->shopItems[i].name, game->shopItems[i].price);
+    int i = 0;
+    Item *item = (Item *) game->shop.itemList.head;
+    while (item != NULL) {
+        printf("%d. %s - %d Gold\n", i + 1, item->name, item->value);
+        i++;
     }
-    printf("%d. Thoat\n", game->shopSize + 1);
+    printf("%d. Thoat\n", i + 1);
 }
 
-// Hien thi túi do cua nguoi choi
+// Show item and selling price in player's inventory
 void showInventory(Game *game) {
     printf("\n======== INVENTORY ========\n");
-    if (game->invSize == 0) {
+    int i = 0;
+    if (game->itemList.size == 0) {
         printf("Ban chua co do nao.\n");
     } else {
-        for (int i = 0; i < game->invSize; i++) {
-            printf("%d. %s - Ban duoc %d Gold\n", i + 1, game->inventory[i].name, game->inventory[i].price / 2);
+        Item *item = (Item *) game->itemList.head;
+
+        while (item != NULL) {
+            printf("%d. %s - Ban duoc %d Gold\n", i + 1, item->name, (int) (item->value * game->config.sellValue));
         }
+        i++;
     }
-    printf("%d. Thoat\n", game->invSize + 1);
+    printf("%d. Thoat\n", i + 1);
 }
 
-// Mua do tu shop
+// Buy item from shop
 void buyItem(Game *game) {
     int choice;
     while (1) {
@@ -48,26 +40,29 @@ void buyItem(Game *game) {
         printf("Chon do muon mua: ");
         scanf("%d", &choice);
 
-        if (choice == game->shopSize + 1)
+        if (choice == game->shop.itemList.size + 1)
             break;
 
-        if (choice < 1 || choice > game->shopSize) {
+        if (choice < 1 || choice > game->shop.itemList.size) {
             printf("Lua chon khong hop le!\n");
             continue;
         }
 
-        Item it = game->shopItems[choice - 1];
-        if (game->gold >= it.price) {
-            game->gold -= it.price;
-            game->inventory[game->invSize++] = it;
-            printf("Ban da mua %s! (Con %d Gold)\n", it.name, game->gold);
+        Item *it = (Item *) getElementAt(game->shop.itemList, choice-1)->value;
+        if (game->gold >= it->value) {
+            game->gold -= it->value;
+            Item *newItem = malloc(sizeof(Item));
+            // Value copy item to inventory
+            *newItem = *it;
+            insert(game->itemList, newItem);
+            printf("Ban da mua %s! (Con %d Gold)\n", it->name, game->gold);
         } else {
             printf("Ban khong du tien!\n");
         }
     }
 }
 
-// Bán do trong inventory
+// Sell item in inventory
 void sellItem(Game *game) {
     int choice;
     while (1) {
@@ -75,29 +70,26 @@ void sellItem(Game *game) {
         printf("Chon do muon ban: ");
         scanf("%d", &choice);
 
-        if (choice == game->invSize + 1)
+        if (choice == game->itemList.size + 1)
             break;
 
-        if (choice < 1 || choice > game->invSize) {
+        if (choice < 1 || choice > game->itemList.size) {
             printf("Lua chon khong hop le!\n");
             continue;
         }
 
-        Item it = game->inventory[choice - 1];
-        int goldEarned = it.price / 2;
+        Item *it = (Item *) getElementAt(game->itemList, choice - 1)->value;
+        int goldEarned = it->value * game->config.sellValue;
         game->gold += goldEarned;
+        
+        removeAt(game->itemList, choice - 1);
 
-        for (int i = choice - 1; i < game->invSize - 1; i++) {
-            game->inventory[i] = game->inventory[i + 1];
-        }
-        game->invSize--;
-
-        printf("Ban da ban %s va nhan duoc %d Gold! (Tong: %d Gold)\n", it.name, goldEarned, game->gold);
+        printf("Ban da ban %s va nhan duoc %d Gold! (Tong: %d Gold)\n", it->name, goldEarned, game->gold);
     }
 }
 
-// Mua shop
-void openShop(Game *game) {
+// Show shop interface
+void openShop(Game * game) {
     int choice;
     while (1) {
         printf("\n======= SHOP MENU =======\n");
@@ -121,22 +113,4 @@ void openShop(Game *game) {
                 printf("Lua chon khong hop le!\n");
         }
     }
-}
-
-// Chuong trình chính
-int main() {
-    Game game = {
-        .shopItems = {
-            {"Kiem go", 100},
-            {"Kiem sat", 200},
-            {"Giap da", 150},
-            {"Binh mau", 50}
-        },
-        .shopSize = 4,
-        .invSize = 0,
-        .gold = 500
-    };
-
-    openShop(&game);
-    return 0;
 }

@@ -1,116 +1,169 @@
 #include <stdio.h>
-#include <string.h>
+#include "game_object.h"
+#include "character.h"
 
-#define MAX 3
+void editFormation(Game * game) {
+    int choice;
+    int menuIndex = 0;
+    int binaryArray[4] = {0, 0, 0, 1};
+    while (1) {
+        printf("Formation editor menu.\n");
+        int championAmount = printAndCountFormation(game);
+        if (championAmount < 3) {
+            printf("%d. Add new champion.\n", ++menuIndex);
+            binaryArray[0] = 1;
+        }
+        if (championAmount > 0) {
+            printf("%d. Remove champion.\n", ++menuIndex);
+            printf("%d. Change champion.\n", ++menuIndex);
+            binaryArray[1] = 1;
+            binaryArray[2] = 1;
+        }
+        printf("%d. Quit.\n", ++menuIndex);
+        printf("Your choice: ");
+        scanf("%d", &choice);
+        findBinaryMapping(binaryArray, choice-1, 4);
+        switch (choice) {
+        case 0:
+            addChampion(game, championAmount);
+            continue;
+        case 1:
+            removeChampion(game, championAmount);
+            continue;
+        case 2:
+            changeChampion(game, championAmount);
+            continue;
+        case 3:
+            return;
 
-typedef struct{
-	char name[30];
-	int level;
-} character;
+        default:
+            printf("Invalid choice\n");
+            continue;
+        }
+    }
+}
 
-void displayTeam(character team[], int count){
-	int i;
-	int (count == 0){
-		printf("Doi hinh dang trong");
-	}
-	else {
-		printf("==Doi hinh hien tai==");
-		for (i = 0; i < count; i++){
-			printf("%d. Ten: %s | level:%d\n", i + 1, team[i].name, team[i].level);
-		}
-	}
+void addChampion(Game * game, int championAmount) {
+    while (1) {
+        printf("Select champion you want to add\n");
+        for (int i = 0;i < ELF;i++) {
+            printf("%d. %s\n", (enum Class) i+1, champion_string[i]);
+        }
+        int choice;
+        printf("Your choice: \n");
+        scanf("%d\n", &choice);
+        if (choice < 0 || choice > ELF) {
+            printf("Invalid choice\n");
+            continue;
+        }
+        Champion champion;
+        champion.health = 100;
+        champion.maxHealth = 100;
+        champion.damage = 10;
+        champion.class = (enum Class) choice;
+        game->champion[championAmount] = champion;
+        break;
+    }
 }
-void addCharcter(Charcter team[], int*count){
-	if(*count >= MAX){
-		printf("khong the them! Doi hinh da d? % nhan vat\n", MAX);
-		return ;
-	}
-	Character c;
-	printf("nhap nhan vat hien tai:");
-	Scanf("%[^\n]", c.game);
-	printf("Nhap level nhan vat:");
-	Scanf("%d\n", &c.level);
-	
-	team[*count] = c;
-	(*count)++
-	printf("Da them nhan vat vao doi hinh!\n");
+
+void removeChampion(Game * game, int championAmount) {
+    while (1) {
+        printf("Select champion you want to remove\n");
+        for (int i = 0;i < championAmount;i++) {
+            printf("%d. %s lv: %d, xp: %d\n", i+1, champion_string[game[i].champion->class],
+                game->champion[i].level, game->champion[i].xp);
+        }
+        printf("%d. Quit\n", championAmount);
+        printf("Your choice: \n");
+        int choice;
+        scanf("%d", &choice);
+        if (choice < 0 || choice > championAmount) {
+            printf("Invalid choice!\n");
+            continue;
+        }
+        if (choice == championAmount) return;
+        game->champion[choice-1].maxHealth = 0;
+        game->champion[choice-1].health = 0;
+        // Defragment champion list
+        if (choice < championAmount-1) {
+            for (int i=choice-1;i < championAmount-1;i++) {
+                game->champion[i] = game->champion[i+1];
+            }
+        }
+        break;
+    }
 }
-void removeCharacter(Character team[], int *count){
-	if(*count == 0){
-		printf("khong co nhan vat nao de xoa!\n");
-		return;
-	}
-	displayTeam(team, *count);
-	int index;
-	printf("chon nhan vat de xoa", *count);
-	scanf("%d", &index);
-	if (index < 1 || index > *count){
-		printf("Lua chon khong hop le!\n");
-		return;
-	}
-	int i;
-	for (i = index; i < *count - 1; i++){
-		team[i] = team[i + 1];
-	}
-	(*count)--;
-	printf("Da xoa nhan vat khoi doi hinh!\n");
+
+void changeChampion(Game * game, int championAmount) {
+    while (1) {
+        printf("Select champion you want to change\n");
+        for (int i = 0;i < championAmount;i++) {
+            printf("%d. %s lv: %d, xp: %d\n", i+1,
+                champion_string[game->champion[i].class], game->champion[i].level,
+                game->champion[i].xp);
+        }
+        printf("%d. Quit\n", championAmount);
+        printf("Your choice: \n");
+        int choice;
+        scanf("%d", &choice);
+        if (choice < 0 || choice > championAmount) {
+            printf("Invalid choice!\n");
+            continue;
+        }
+        if (choice == championAmount) return;
+        choice -= 1;
+        printf("Select champion you want to replace %s lv: %d\n", 
+            champion_string[game->champion[choice].class], game->champion[choice].level);
+        for (int i = 0;i < ELF;i++) {
+            printf("%d. %s\n", (enum Class) i+1, champion_string[i]);
+        }
+        printf("%d. Quit\n", ELF);
+        printf("Your choice: ");
+        int choice1;
+        scanf("%d", &choice1);
+        if (choice1 < 0 || choice1 > ELF) {
+            printf("Invalid choice!\n");
+            continue;
+        }
+        if (choice1 == ELF) return;
+        choice1 -= 1;
+        Champion champion;
+        champion.health = 100;
+        champion.maxHealth = 100;
+        champion.damage = 10;
+        champion.class = (enum Class) choice1;
+        game->champion[choice] = champion;
+    }
 }
-void swapCharacter(Character team[], int count){
-	if (count < 2){
-		printf("Can it nhat 2 nhan vat de doi cho!\n");
-		return;
-	}
-	displayTeam(team, count)
-		int a,b;
-		printf("Nhap vi tri nhan vat so 1:");
-		scanf("%d", &a);
-		printf("Nhap vi tri nhan vat so 2:");
-		scanf("%d", &b);
-		
-		if(a < 1 || b < 1 || a > count || b > count){
-			printf("Lua chon vuot qua pham vi!\n");
-			return;
-		}
-		Character temp = team[a - 1];
-		team[a - 1] = team[b - 1];
-		team[b - 1] = temp;
-		printf("Da doi vi tri 2 nhan vat!\n");
+
+void addXp(Game * game, int xp) {
+    for (int i=0;i < 3;i++) {
+        // Check if a champion is in this slot
+        if (game->champion[i].maxHealth > 0) {
+            game->champion[i].xp += xp;
+            if (game->champion[i].xp > game->config.baseLvUpXp *
+                game->champion[i].level * game->config.lvUpXpMul) {
+                game->champion[i].xp -= game->config.baseLvUpXp *
+                    game->champion[i].level * game->config.lvUpXpMul;
+            }
+        }
+    }
 }
-int main(){
-	Character team[MAX];
-	int count = 0;
-	int choice = 0;
-	
-	do {
-		printf("\n======MENU=======\n");
-		printf("1. Hien thi doi hinh\n");
-		printf("2.Them nhan vat\n");
-		printf("3.Xoa nhan vat\n");
-		printf("4.Doi nhan vat\n");
-		printf("0.Thoat\n");
-		printf("Chon: ");
-		scanf("%d", &choice);
-		
-		switch(choice){
-			case 1:
-				displayTeam(team, count);
-				break;
-			case 2:
-				addCharacter(team, &count);
-				break;
-			case 3:
-				removeCharacter(team, &count);
-				break;
-			case 4:
-				swapCharacter(team, count);
-				break;
-			case 0:
-				printf("Thoat chuong trinh!\n");
-				break;
-			default:
-				printf("Lua chon khong hop le!\n");
-		}
-	}while(choice != 0);
-	
-	return 0;
+
+int printAndCountFormation(Game * game) {
+    int counter = 0;
+    for (int i = 0;i < 3;i++) {
+        Champion champion = game->champion[i];
+        // Check if there is a champion
+        if (champion.maxHealth > 0) {
+            counter++;
+            printf("Champion %d:\n", i+1);
+            printf("Level: %d\n", champion.level);
+            printf("Current health: %d/%d\n", champion.health, champion.maxHealth);
+            printf("Damage: %d\n", champion.damage);
+            printf("Class: %s\n", champion_string[champion.class]);
+            printf("\n");
+        }
+    }
+    return counter;
 }

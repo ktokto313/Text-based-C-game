@@ -1,6 +1,36 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include "sideEvent.h"
+#include "movement.h"
+#include "explore.h"
+#include "shop.h"
+#include "character.h"
 #include "game_object.h"
+#include "combat.h"
+#include "fileio.h"
+
+void initGame(Game * game) {
+	game->level = 0;
+	game->day = 0;
+	game->timeOfTheDay = 0;
+	game->gold = 0;
+	init(game->itemList);
+	editFormation(game);
+	loadMapAndLocationData(game);
+	loadConfig(game);
+	loadShop(game);
+	game->initialized = 1;
+}
+
+void rest(Game * game) {
+	for (int i=0;i < 3;i++) {
+		if (game->champion[i].maxHealth > 0) {
+			game->champion[i].health = game->champion[i].maxHealth;
+		}
+	}
+	printf("Your team rested and fully healed!");
+	addTimeOfTheDay(game, 1);
+}
 
 void doTraining(Game * game) {
 	int choice;
@@ -16,7 +46,7 @@ void doTraining(Game * game) {
 		switch (choice)
 		{
 		case 1:
-			createBattle(game);
+			createCombat(game);
 			break;
 		case 2:
 			editFormation(game);
@@ -54,7 +84,7 @@ void doGameTick(Game * game){
 			    	doTraining(game);
 			    	break;
 			    case 4:
-			    	rest();
+			    	rest(game);
 			    	break;
 			    case 5:
 			    	return;
@@ -92,5 +122,4 @@ void doGameTick(Game * game){
 			}
 		}
 	}
-	return 0;
 }
