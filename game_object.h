@@ -105,6 +105,7 @@ typedef struct {
     int initialized;
     Config config;
     Shop shop;
+    int isTester;
 } Game;
 
 extern void init(LinkedList list);

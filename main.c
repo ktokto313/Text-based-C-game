@@ -8,16 +8,23 @@
 #include "movement.h"
 #include "cJSON.h"
 
-// Khai b�o c�c h�m
 void showMainMenu(Game *game);
+void showRoleMenu(Game *game);
 void adminMenu();
-void testerMenu();
 
 int main() {
     int modeChoice;
     Game game;
     game.initialized = 0;
 
+    showRoleMenu(&game);
+    showMainMenu(&game);
+    
+    return 0;
+}
+
+void showRoleMenu(Game *game) {
+    int modeChoice;
     while (1) {
         printf("\n====================================\n");
         printf("     WELCOME TO OSG ADVENTURE GAME  \n");
@@ -36,19 +43,16 @@ int main() {
 	            adminMenu();
 	            continue;
 	        case 2:
-	            game.isTester = 1;
+	            game->isTester = 1;
 	            break;
-	        case 0:
-	            printf("Goodbye! Thanks for playing!\n");
-	            return 0; 
+            case 3: 
+                game->isTester = 0;
+                break;
 	        default:
-	            printf("Invalid choice! Please choose 0�3.\n");
+	            printf("Invalid choice! Please choose 1-3.\n");
 	            continue;
 		}
-            
-        showMainMenu(&game);
     }
-    return 0;
 }
 
 void showMainMenu(Game *game) {
