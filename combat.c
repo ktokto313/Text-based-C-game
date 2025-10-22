@@ -291,6 +291,7 @@ int initCombat(Game *game) {
     printf("\n=== COMBAT START ===\n");
     LinkedList *monsterList = &((LocationData*)game->locationData)[game->level].monsterList;
     int totalMonsters = monsterList->size;
+    
     if (totalMonsters == 0) {
         printf("No monsters to fight!\n");
         return 1;
@@ -328,6 +329,7 @@ int initCombat(Game *game) {
     int totalExp = 0;
     while (1) {
         if (championIndex >= 3) championIndex = 0;
+        
         while (game->champion[championIndex].health <= 0) {
             championIndex++;
             if (championIndex >= 3) championIndex = 0;
@@ -412,20 +414,27 @@ int initCombat(Game *game) {
                 aliveChampions[aliveCount++] = i;
             }
         }
+        if (aliveCount == 0) {
+            printf("\n=== DEFEAT ===\n");
+            printf("All champions defeated!\n");
+            game->initialized = 0;
+            return 0;
+        }
         int targetIdx = aliveChampions[rand() % aliveCount];
         game->champion[targetIdx].health -= localEnemies[monsterIndex].damage;
         if (game->champion[targetIdx].health <= 0) {
             game->champion[targetIdx].health = 0;
-            aliveCount--;
+            woundedChampions++;
         }
         printf("\n%s attacks Champion %d for %d damage! (HP: %d/%d)\n",
                localEnemies[monsterIndex].name, targetIdx + 1, 
                localEnemies[monsterIndex].damage,
                game->champion[targetIdx].health, 
                game->champion[targetIdx].maxHealth);
-        if (aliveCount == 0) {
+        if (woundedChampions >= 3) {
             printf("\n=== DEFEAT ===\n");
             printf("All champions defeated!\n");
+            game->initialized = 0;
             return 0;
         }
         monsterIndex++;
@@ -471,7 +480,8 @@ int selectTarget(Monster enemies[], int enemyCount) {
         printf("\n--- Select Target ---\n");
         int aliveMap[enemyCount];
         int counter = 0;
-        for (int i = 0; i < enemyCount; i++) {
+        int i;
+        for (i = 0; i < enemyCount; i++) {
             if (enemies[i].health > 0) {
                 aliveMap[i] = 1;
                 printf("[%d] %s (HP: %d/%d)\n", 
@@ -494,7 +504,8 @@ int selectTarget(Monster enemies[], int enemyCount) {
         if (target == -1) {
             printf("Invalid target!\n");
             continue;
-        }        
+        }
+        
         return target;
     }
 }
@@ -516,6 +527,17 @@ void viewStatsMenu(Game *game, Monster enemies[], int enemyCount) {
                        i + 1, champion_string[c.class],
                        c.health, c.maxHealth, c.damage,
                        c.health <= 0 ? " [DEFEATED]" : "");
+            }
+            FILE *dbg = fopen("formation_debug.txt", "a");
+            if (dbg) {
+                fprintf(dbg, "--- All Champions ---\n");
+                for (int j = 0; j < 3; j++) {
+                    Champion c = game->champion[j];
+                    fprintf(dbg, "Champion %d - %s: HP %d/%d | Damage: %d%s\n",
+                            j + 1, champion_string[c.class], c.health, c.maxHealth, c.damage,
+                            c.health <= 0 ? " [DEFEATED]" : "");
+                }
+                fclose(dbg);
             }
         } else if (choice == 2) {
             printf("\nSelect Monster:\n");
