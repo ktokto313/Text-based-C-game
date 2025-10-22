@@ -18,32 +18,10 @@ typedef struct {
         CHAMPION(PALADIN)   \
         CHAMPION(ROGUE)   \
         CHAMPION(ELF)   \
-#define FOREACH_EFFECT(EFFECT) \
-    EFFECT(SINGLE_TARGET_ALLY) \
-    EFFECT(AOE_ALLY) \
-    EFFECT(SINGLE_TARGET_ENEMY) \
-    EFFECT(AOE_ENEMY) \
-#define FOREACH_EFFECT_TYPE(EFFECT_TYPE) \
-    EFFECT_TYPE(DAMAGE) \
-    EFFECT_TYPE(HEAL) \
-    EFFECT_TYPE(BUFF) \
-    EFFECT_TYPE(DEBUFF)\
 
 #define GENERATE_ENUM(ENUM) ENUM,
 #define GENERATE_STRING(STRING) #STRING,
 
-enum EffectTarget {
-    FOREACH_EFFECT(GENERATE_ENUM)
-};
-static const char *effect_target_string[] = {
-    FOREACH_EFFECT(GENERATE_STRING)
-};
-enum EffectType {
-    FOREACH_EFFECT_TYPE(GENERATE_ENUM)
-};
-static const char *effect_type_string[] = {
-    FOREACH_EFFECT_TYPE(GENERATE_STRING)
-};
 enum Class {
     FOREACH_CHAMPION(GENERATE_ENUM)
 };
@@ -51,13 +29,6 @@ enum Class {
 static const char * const champion_string[] = {
     FOREACH_CHAMPION(GENERATE_STRING)
 };
-
-typedef struct {
-    enum EffectType effectType;
-    enum EffectTarget effectTarget;
-    int effectValue;
-
-} Skill;
 
 typedef struct {
     int health;
