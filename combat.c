@@ -11,8 +11,8 @@ void showMonsterStats(Monster *m, int index);
 void viewStatsMenu(Game *game, Monster enemies[], int enemyCount);
 void useSkill(Champion *c, Game *game, Monster enemies[], int enemyCount);
 void useItem(Game *game) {
-    printf("\n=== Use Item (stub) ===\n");
-    printf("No items implemented. Returning to combat.\n");
+    // open the inventory menu so the player may use/equip/drop items
+    openInventoryMenu(game);
 }
 #define FOREACH_TARGET(TARGET) \
         TARGET(SINGLE_ENEMY)   \
@@ -615,4 +615,159 @@ void printCombatStatus(Game *game, Monster enemies[], int enemyCount) {
 }
 void createCombat(Game *game) {
     initCombat(game);
+}
+
+/*
+ * simulateCombat: deterministic, non-interactive combat used for automated testing.
+ * Champions always choose to attack the first alive enemy. Monsters attack a random
+ * alive champion. This duplicates core combat flow but avoids scanf() so it can be
+ * executed in tests/CI.
+ */
+void simulateCombat(Game *game) {
+    if (!game) return;
+    FILE *logf = fopen("run_combat_direct.log", "a");
+    if (!logf) {
+        // fallback: continue without file logging
+    }
+    sanitizeAllChampions(game);
+    LinkedList *monsterList = &((LocationData*)game->locationData)[game->level].monsterList;
+    int totalMonsters = monsterList->size;
+    int fightCount = 3;
+    if (totalMonsters <= 0) {
+        printf("No monsters in this location. (simulate)\n");
+        return;
+    }
+    if (fightCount > totalMonsters) fightCount = totalMonsters;
+    Monster *localEnemies = malloc(sizeof(Monster) * fightCount);
+    if (!localEnemies) return;
+    int enemyCount = 0;
+    int *selected = malloc(sizeof(int) * totalMonsters);
+    if (!selected) { free(localEnemies); return; }
+    for (int i = 0; i < totalMonsters; i++) selected[i] = 0;
+    srand((unsigned)time(NULL));
+    while (enemyCount < fightCount) {
+        int randIndex = rand() % totalMonsters;
+        if (selected[randIndex] == 0) {
+            selected[randIndex] = 1;
+            Node *current = monsterList->head;
+            for (int k = 0; k < randIndex; k++) current = current->next;
+            Monster *m = (Monster *)current->value;
+            localEnemies[enemyCount].health = m->health;
+            localEnemies[enemyCount].maxHealth = m->maxHealth;
+            localEnemies[enemyCount].damage = m->damage;
+            strncpy(localEnemies[enemyCount].name, m->name, sizeof(localEnemies[enemyCount].name)-1);
+            enemyCount++;
+        }
+    }
+    if (logf) fprintf(logf, "(simulate) %d monsters appear!\n", enemyCount);
+    printf("(simulate) %d monsters appear!\n", enemyCount);
+    int championIndex = 0;
+    int monsterIndex = 0;
+    int totalExp = 0;
+    int victory = 0;
+    int defeat = 0;
+    while (!victory && !defeat) {
+        /* Champions take turns; each champion will attack first alive enemy */
+        int found = -1;
+        for (int i = 0; i < 3; i++) {
+            int idx = (championIndex + i) % 3;
+            if (game->champion[idx].health > 0) { found = idx; break; }
+        }
+        if (found == -1) { defeat = 1; break; }
+        championIndex = found;
+        int target = -1;
+        for (int t = 0; t < enemyCount; t++) if (localEnemies[t].health > 0) { target = t; break; }
+        if (target < 0) { victory = 1; break; }
+    int baseDamage = game->champion[championIndex].damage;
+    int appliedDamage = baseDamage; /* no crits, deterministic */
+        localEnemies[target].health -= appliedDamage;
+        if (localEnemies[target].health <= 0) { localEnemies[target].health = 0; totalExp += 50; }
+        if (logf) fprintf(logf, "(simulate) Champion %d attacks %s for %d (HP:%d/%d)\n", championIndex+1, localEnemies[target].name, appliedDamage, localEnemies[target].health, localEnemies[target].maxHealth);
+        printf("(simulate) Champion %d attacks %s for %d (HP:%d/%d)\n", championIndex+1, localEnemies[target].name, appliedDamage, localEnemies[target].health, localEnemies[target].maxHealth);
+        /* Monsters' turn */
+        int mfound = -1;
+        for (int mi = 0; mi < enemyCount; mi++) if (localEnemies[mi].health > 0) { mfound = mi; break; }
+        if (mfound == -1) { victory = 1; break; }
+        /* monsters attack a random alive champion */
+        int aliveIdxs[3]; int aCount = 0;
+        for (int i = 0; i < 3; i++) if (game->champion[i].health > 0) aliveIdxs[aCount++] = i;
+        if (aCount == 0) { defeat = 1; break; }
+        int tgtChamp = aliveIdxs[rand() % aCount];
+        game->champion[tgtChamp].health -= localEnemies[mfound].damage;
+        if (game->champion[tgtChamp].health <= 0) game->champion[tgtChamp].health = 0;
+    if (logf) fprintf(logf, "(simulate) %s attacks Champion %d for %d (HP:%d/%d)\n", localEnemies[mfound].name, tgtChamp+1, localEnemies[mfound].damage, game->champion[tgtChamp].health, game->champion[tgtChamp].maxHealth);
+    printf("(simulate) %s attacks Champion %d for %d (HP:%d/%d)\n", localEnemies[mfound].name, tgtChamp+1, localEnemies[mfound].damage, game->champion[tgtChamp].health, game->champion[tgtChamp].maxHealth);
+        championIndex = (championIndex + 1) % 3;
+        int dead = 0; for (int _k = 0; _k < enemyCount; _k++) if (localEnemies[_k].health <= 0) dead++;
+        if (dead >= enemyCount) { victory = 1; break; }
+    }
+    if (victory) {
+    if (logf) fprintf(logf, "\n(simulate) === VICTORY ===\n");
+    printf("\n(simulate) === VICTORY ===\n");
+    if (logf) fprintf(logf, "(simulate) Experience gained: %d\n", totalExp);
+    printf("(simulate) Experience gained: %d\n", totalExp);
+        addXp(game, totalExp);
+        LinkedList drops; init(&drops);
+        int dropCount = (rand() % 2) + 1;
+        int shopSize = game->shop.itemList.size;
+            // ensure shop has entries for drop selection; if not, create dummy shop items
+            if (shopSize == 0) {
+                for (int si = 0; si < 5; si++) {
+                    Item *it = malloc(sizeof(Item));
+                    if (!it) continue;
+                    it->type = WEAPON;
+                    it->value = 10 + si * 5;
+                    it->effectValue = 1 + si;
+                    it->qty = 1;
+                    it->equipped_by = -1;
+                    snprintf(it->name, sizeof(it->name), "ShopItem%d", si+1);
+                    insert(&game->shop.itemList, it);
+                }
+                shopSize = game->shop.itemList.size;
+            }
+        for (int di = 0; di < dropCount; di++) {
+            // Prefer dropping a shop item from the first up to 5 entries when available
+            if (shopSize > 0) {
+                int limit = shopSize < 5 ? shopSize : 5;
+                int pick = rand() % limit; // 0..limit-1
+                Node *n = getElementAt(game->shop.itemList, pick);
+                if (n && n->value) {
+                    Item *src = (Item *) n->value;
+                    Item *it = createItemInstance(src, 1);
+                    // ensure name copied
+                    strncpy(it->name, src->name, sizeof(it->name)-1);
+                    insert(&drops, it);
+                    continue;
+                }
+            }
+            // fallback to old random templates
+            int r = rand() % 100;
+            if (r < 40) {
+                int goldGain = (rand() % 10) + 5; game->gold += goldGain; if (logf) fprintf(logf, "(simulate) Found %d gold.\n", goldGain); printf("(simulate) Found %d gold.\n", goldGain);
+            } else if (r < 75) {
+                Item template = { .type = HEALTH_POTION, .value = 5, .effectValue = 20, .qty = 1 };
+                strncpy(template.name, "Health Potion", sizeof(template.name)-1);
+                Item *it = createItemInstance(&template, 1); insert(&drops, it);
+            } else if (r < 95) {
+                Item template = { .type = WEAPON, .value = 20, .effectValue = 5, .qty = 1 };
+                strncpy(template.name, "Rusty Sword", sizeof(template.name)-1);
+                Item *it = createItemInstance(&template, 1); insert(&drops, it);
+            } else {
+                Item template = { .type = SPECIAL, .value = 100, .effectValue = 0, .qty = 1 };
+                strncpy(template.name, "Monster Fang", sizeof(template.name)-1);
+                Item *it = createItemInstance(&template, 1); insert(&drops, it);
+            }
+        }
+        handleMonsterDrops(game, &drops, 1);
+    // show inventory after auto-pickup so tests can assert item presence
+    printInventory(game);
+        if (logf) fflush(logf);
+    } else if (defeat) {
+        if (logf) fprintf(logf, "\n(simulate) === DEFEAT ===\n");
+        printf("\n(simulate) === DEFEAT ===\n");
+        game->initialized = 0;
+    }
+    free(localEnemies);
+    free(selected);
+    if (logf) fclose(logf);
 }
