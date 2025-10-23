@@ -91,7 +91,7 @@ int championIndexOf(Game *game, Champion *c) {
 }
 void decrementLocalCooldowns(void) {
     for (int ci = 0; ci < 3; ci++) {
-        for (int si = 0; si < 4; si++) {
+        for (int si = 0; si < MAX_SKILLS; si++) {
             if (localCooldowns[ci][si] > 0) localCooldowns[ci][si]--;
         }
     }
@@ -297,10 +297,23 @@ int initCombat(Game *game) {
         return 1;
     }
     int fightCount = 3;
+    if (totalMonsters <= 0) {
+        printf("No monsters in this location.\n");
+        return;
+    }
     if (fightCount > totalMonsters) fightCount = totalMonsters;
-    Monster localEnemies[fightCount];
+    Monster *localEnemies = malloc(sizeof(Monster) * fightCount);
+    if (!localEnemies) {
+        printf("Memory error starting combat.\n");
+        return;
+    }
     int enemyCount = 0;
-    int selected[totalMonsters];
+    int *selected = malloc(sizeof(int) * totalMonsters);
+    if (!selected) {
+        free(localEnemies);
+        printf("Memory error starting combat.\n");
+        return;
+    }
     int i;
     for (i = 0; i < totalMonsters; i++) selected[i] = 0; 
     srand(time(NULL));
@@ -324,17 +337,22 @@ int initCombat(Game *game) {
     printf("%d monsters appear!\n", enemyCount);
     int championIndex = 0;
     int monsterIndex = 0;
-    int downedMonster = 0;
-    int woundedChampions = 0;
     int totalExp = 0;
-    while (1) {
-        if (championIndex >= 3) championIndex = 0;
-        
-        while (game->champion[championIndex].health <= 0) {
-            championIndex++;
-            if (championIndex >= 3) championIndex = 0;
+    int victory = 0;
+    int defeat = 0;
+    while (!victory && !defeat) {
+        /* decrement cooldowns each round so skills go back online over time */
+        decrementLocalCooldowns();
+        int found = -1;
+        for (i = 0; i < 3; i++) {
+            int idx = (championIndex + i) % 3;
+            if (game->champion[idx].health > 0) { found = idx; break; }
         }
-        printf("\n=== Champion %d (%s)'s Turn (HP: %d/%d) ===\n", 
+        if (found == -1) {
+            defeat = 1; break;
+        }
+        championIndex = found;
+        printf("\n=== Champion %d (%s)'s Turn (HP: %d/%d) ===\n",
                championIndex + 1, champion_string[game->champion[championIndex].class],
                game->champion[championIndex].health, game->champion[championIndex].maxHealth);
         printf("[1] Attack\n[2] Use Skill\n[3] Use Item\n[4] View Stats\nChoose action: ");
@@ -351,7 +369,6 @@ int initCombat(Game *game) {
                 localEnemies[target].health -= game->champion[championIndex].damage;
                 if (localEnemies[target].health <= 0) {
                     localEnemies[target].health = 0;
-                    downedMonster++;
                     totalExp += 50;
                 }
                 printf("Champion %d attacks %s for %d damage! (HP: %d/%d)\n",
@@ -389,6 +406,7 @@ int initCombat(Game *game) {
             }
             case 3:
                 useItem(game);
+                championIndex = (championIndex + 1) % 3;
                 break;
             case 4:
                 viewStatsMenu(game, localEnemies, enemyCount);
@@ -424,12 +442,11 @@ int initCombat(Game *game) {
         game->champion[targetIdx].health -= localEnemies[monsterIndex].damage;
         if (game->champion[targetIdx].health <= 0) {
             game->champion[targetIdx].health = 0;
-            woundedChampions++;
         }
         printf("\n%s attacks Champion %d for %d damage! (HP: %d/%d)\n",
-               localEnemies[monsterIndex].name, targetIdx + 1, 
+               localEnemies[monsterIndex].name, targetIdx + 1,
                localEnemies[monsterIndex].damage,
-               game->champion[targetIdx].health, 
+               game->champion[targetIdx].health,
                game->champion[targetIdx].maxHealth);
         if (woundedChampions >= 3) {
             printf("\n=== DEFEAT ===\n");
