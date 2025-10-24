@@ -27,9 +27,10 @@ void showInventory(Game *game) {
 
         while (node != NULL) {
             Item *item = (Item *) node->value;
-            printf("%d. %s - Ban duoc %d Gold\n", i + 1, item->name, (int) (item->value * game->config.sellValue));
+            printf("%d. %s - Ban duoc %.2lf Gold\n", i + 1, item->name,  (item->value * game->config.sellValue));
+            node = node->next;
+            i++;
         }
-        i++;
     }
     printf("%d. Thoat\n", i + 1);
 }

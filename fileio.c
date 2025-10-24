@@ -457,7 +457,7 @@ void loadConfig(Game * game) {
     game->config.scenarioWeights[2] = cJSON_GetArrayItem(scenarioWeights, 2)->valueint;
     game->config.maxTimeOfTheDay = cJSON_GetObjectItem(root, "maxTimeOfTheDay")->valueint;
     game->config.teleportPenalty = cJSON_GetObjectItem(root, "teleportPenalty")->valueint;
-    game->config.sellValue = cJSON_GetObjectItem(root, "sellValue")->valueint;
+    game->config.sellValue = cJSON_GetObjectItem(root, "sellValue")->valuedouble;
     game->config.saveInterval = cJSON_GetObjectItem(root, "saveInterval")->valueint;
 
     cJSON_Delete(root);

@@ -29,6 +29,7 @@ void move(Game * game) {
         }
         
         printf("You have moved to %s\n", game->locationData[choice].name);
+        addTimeOfTheDay(game, 1);
         game->level = choice;
         return;
     }
