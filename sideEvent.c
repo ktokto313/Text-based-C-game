@@ -1,18 +1,15 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include "game_object.h"
 #include "character.h"
 #include "sideEvent.h"
+#include "inventory.h"
 
-int handleTrap(Game * game);
-void handleChest(Game * game);
-
-// Return true if the team is alive
-// Return false otherwise
-int handleSideEvent(Game* game) {
+void handleSideEvent(Game* game) {
     int eventType = rand() % 2;
     if (eventType == 0) {
-        return handleTrap(game);
+        handleTrap(game);
     } else {
         handleChest(game);
     }
@@ -52,7 +49,7 @@ int handleTrap(Game* game) {
                 } else {
                     printf("Failed! The trap activates!\n");
                     printf("All champions take %d damage!\n", game->config.trapDamage);
-                    for (int i = 0; i < 3; i++) { //will damage all alive ally party
+                    for (int i = 0; i < 3; i++) {
                         if (game->champion[i].health > 0) {
                             game->champion[i].health -= game->config.trapDamage;
                             if (game->champion[i].health < 0) {
@@ -107,7 +104,19 @@ void handleChest(Game* game) {
                     printf("You find %d gold inside!\n", goldFound);
                     game->gold += goldFound;
                     if (rand() % 100 < game->config.chestItemChance) {
-                        printf("You also find a special item!\n");
+                        // Give random item from chest loot pool
+                        const char *chestLoot[] = {"Health Potion", "Large Health Potion", "Health Potion"};
+                        const int chestHeals[] = {15, 25, 15};
+                        int lootIdx = rand() % 3;
+                        
+                        Item *chestItem = (Item *)malloc(sizeof(Item));
+                        if (chestItem) {
+                            chestItem->type = HEALTH_POTION;
+                            strcpy(chestItem->name, chestLoot[lootIdx]);
+                            chestItem->value = chestHeals[lootIdx] * 5;
+                            chestItem->effectValue = chestHeals[lootIdx];
+                            addItemToInventory(game, chestItem);
+                        }
                     }
                     return;
                 } else {

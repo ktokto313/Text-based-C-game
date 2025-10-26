@@ -4,6 +4,118 @@
 #include <time.h>
 #include "game_object.h"
 #include "character.h"
+#include "inventory.h"
+#include <cJSON.h>
+#define CRIT_CHANCE 0.15 //add crit chance constant
+#define CRIT_DAMAGE 1.5 // Critical damage multiplier
+#define DROP_CHANCE 0.3  // 30% chance per monster to drop loot
+static int champBuffValue[3] = {0};
+static int champBuffTurns[3] = {0};
+static int enemyDebuffValue[3] = {0};
+static int enemyDebuffTurns[3] = {0};
+static double champCritBonus[3] = {0.0};
+
+// Simple loot table - can be expanded later
+static void generateLoot(LinkedList *drops, int monsterCount) {
+    // Loot pool
+    const char *lootNames[] = {"Health Potion", "Small Health Potion", "Large Health Potion"};
+    const int lootHeals[] = {15, 10, 25};
+    const int lootCount = 3;
+    
+    for (int i = 0; i < monsterCount; i++) {
+        double roll = (double)rand() / (double)RAND_MAX;
+        if (roll < DROP_CHANCE) {
+            // Random item from loot pool
+            int lootIdx = rand() % lootCount;
+            Item *drop = (Item *)malloc(sizeof(Item));
+            if (drop) {
+                drop->type = HEALTH_POTION;
+                strcpy(drop->name, lootNames[lootIdx]);
+                drop->value = lootHeals[lootIdx] * 5; // Gold value
+                drop->effectValue = lootHeals[lootIdx];
+                insert(drops, drop);
+            }
+        }
+    }
+}
+
+static int loadSaveIntoGame(Game *game, const char *path) {
+    FILE *f = fopen(path, "rb");
+    if (!f) {
+        printf("Failed to open save file: %s\n", path);
+        return 0;
+    }
+    if (fseek(f, 0, SEEK_END) != 0) { fclose(f); return 0; }
+    long sz = ftell(f);
+    if (sz < 0) { fclose(f); return 0; }
+    rewind(f);
+    char *buf = (char *)malloc((size_t)sz + 1);
+    if (!buf) { fclose(f); return 0; }
+    size_t rd = fread(buf, 1, (size_t)sz, f);
+    fclose(f);
+    buf[rd] = '\0';
+    cJSON *root = cJSON_Parse(buf);
+    free(buf);
+    if (!root) {
+        printf("Failed to parse save file JSON: %s\n", path);
+        return 0;
+    }
+    cJSON *level = cJSON_GetObjectItem(root, "level");
+    cJSON *day = cJSON_GetObjectItem(root, "day");
+    cJSON *tod = cJSON_GetObjectItem(root, "timeOfTheDay");
+    cJSON *gold = cJSON_GetObjectItem(root, "gold");
+    if (!cJSON_IsNumber(level) || !cJSON_IsNumber(day) || !cJSON_IsNumber(tod) || !cJSON_IsNumber(gold)) {
+        cJSON_Delete(root);
+        printf("Invalid save file schema: %s\n", path);
+        return 0;
+    }
+    game->level = level->valueint;
+    game->day = day->valueint;
+    game->timeOfTheDay = tod->valueint;
+    game->gold = gold->valueint;
+    cJSON *itemList = cJSON_GetObjectItem(root, "itemList");//restore items saved
+    if (itemList && cJSON_IsArray(itemList)) {
+        init(&(game->itemList));
+        int n = cJSON_GetArraySize(itemList);
+        for (int i = 0; i < n; i++) {
+            cJSON *it = cJSON_GetArrayItem(itemList, i);
+            if (!cJSON_IsObject(it)) continue;
+            Item *item = (Item *)malloc(sizeof(Item));
+            if (!item) continue;
+            cJSON *t = cJSON_GetObjectItem(it, "type");
+            cJSON *nm = cJSON_GetObjectItem(it, "name");
+            cJSON *val = cJSON_GetObjectItem(it, "value");
+            cJSON *eff = cJSON_GetObjectItem(it, "effectValue");
+            item->type = t && cJSON_IsNumber(t) ? t->valueint : 0;
+            strcpy(item->name, nm && cJSON_IsString(nm) ? nm->valuestring : "");
+            item->value = val && cJSON_IsNumber(val) ? val->valueint : 0;
+            item->effectValue = eff && cJSON_IsNumber(eff) ? eff->valueint : 0;
+            insert(&(game->itemList), item);
+        }
+    }
+    cJSON *champions = cJSON_GetObjectItem(root, "champions");//for champs
+    if (champions && cJSON_IsArray(champions)) {
+        int n = cJSON_GetArraySize(champions);
+        for (int i = 0; i < 3 && i < n; i++) {
+            cJSON *ch = cJSON_GetArrayItem(champions, i);
+            if (!cJSON_IsObject(ch)) continue;
+            cJSON *h = cJSON_GetObjectItem(ch, "health");
+            cJSON *mh = cJSON_GetObjectItem(ch, "maxHealth");
+            cJSON *d = cJSON_GetObjectItem(ch, "damage");
+            cJSON *cl = cJSON_GetObjectItem(ch, "class");
+            cJSON *lv = cJSON_GetObjectItem(ch, "level");
+            cJSON *xp = cJSON_GetObjectItem(ch, "xp");
+            game->champion[i].health = h && cJSON_IsNumber(h) ? h->valueint : 0;
+            game->champion[i].maxHealth = mh && cJSON_IsNumber(mh) ? mh->valueint : 0;
+            game->champion[i].damage = d && cJSON_IsNumber(d) ? d->valueint : 0;
+            game->champion[i].class = cl && cJSON_IsNumber(cl) ? cl->valueint : 0;
+            game->champion[i].level = lv && cJSON_IsNumber(lv) ? lv->valueint : 0;
+            game->champion[i].xp = xp && cJSON_IsNumber(xp) ? xp->valueint : 0;
+        }
+    }
+    cJSON_Delete(root);
+    return 1;
+}
 void printCombatStatus(Game *game, Monster enemies[], int enemyCount);
 int selectTarget(Monster enemies[], int enemyCount);
 int selectAlly(Game *game);
@@ -14,20 +126,8 @@ void initCombat(Game *game);
 void createCombat(Game *game);
 void simulateCombat(Game *game);
 void useItem(Game *game) {
-    openInventoryMenu(game);
-}
-static void sanitizeChampion(Champion *c) {
-    if (c == NULL) return;
-    if (c->maxHealth <= 0 || c->maxHealth > 1000000) c->maxHealth = 100;
-    if (c->health < 0) c->health = 0;
-    if (c->health > c->maxHealth) c->health = c->maxHealth;
-    if (c->damage < -1000000 || c->damage > 1000000) c->damage = 10;
-    if (c->level < 0 || c->level > 100) c->level = 0;
-    if (c->xp < 0 || c->xp > 100000000) c->xp = 0;
-}
-static void sanitizeAllChampions(Game *game) {
-    if (!game) return;
-    for (int i = 0; i < 3; i++) sanitizeChampion(&game->champion[i]);
+    printf("\n=== Use Item (stub) ===\n");
+    printf("No items implemented. Returning to combat.\n");
 }
 typedef enum { LST_SINGLE_ENEMY, LST_AOE_ENEMY, LST_SINGLE_ALLY, LST_AOE_ALLY } LocalTarget;
 typedef enum { LTE_DAMAGE, LTE_DEBUFF, LTE_HEAL, LTE_BUFF } LocalType;
@@ -56,7 +156,7 @@ static int knightSkillCount = sizeof(knightSkills) / sizeof(knightSkills[0]);
 static LocalSkill paladinSkills[] = {
     {"Firebrand", LST_AOE_ALLY, LTE_BUFF, 3, 3, -1},
     {"Healing Tears", LST_AOE_ALLY, LTE_BUFF, 3, 3, -1},
-    {"Bouncing Shield", LST_AOE_ENEMY, LTE_DAMAGE, 14, 3, 2} /* hits 2 enemies */
+    {"Bouncing Shield", LST_AOE_ENEMY, LTE_DAMAGE, 14, 3, 2}
 };
 static LocalSkill rogueSkills[] = {
     {"Backlash", SINGLE_ENEMY, DAMAGE, 18, 1, 1},
@@ -93,7 +193,7 @@ static int championIndexOf(Game *game, Champion *c) {
     for (int i = 0; i < 3; i++) if (&game->champion[i] == c) return i;
     return -1;
 }
-void decrementLocalCooldowns(void) {
+static void decrementLocalCooldowns(void) {
     for (int ci = 0; ci < 3; ci++) {
         for (int si = 0; si < 4; si++) {
             if (localCooldowns[ci][si] > 0) localCooldowns[ci][si]--;
@@ -101,7 +201,9 @@ void decrementLocalCooldowns(void) {
     }
 }
 void useSkill(Champion *c, Game *game, Monster enemies[], int enemyCount) {
-    printf("\n=== Skills ===\n");
+    printf("\n╔══════════════════════════════════════════════╗\n");
+    printf("║ %-44s ║\n", "*** Skills ***");
+    printf("╚══════════════════════════════════════════════╝\n");
     int ci = championIndexOf(game, c);
     if (ci < 0) ci = 0;
     LocalSkill *skillList = NULL;
@@ -120,6 +222,9 @@ void useSkill(Champion *c, Game *game, Monster enemies[], int enemyCount) {
                s+1, ls->name, target_string[ls->target],
                target_type[ls->type], ls->value, localCooldowns[ci][s],
                localCooldowns[ci][s] > 0 ? " *ON COOLDOWN*" : "");
+        if (s < skillCount - 1) {
+            printf("═════════════════════════════════════════════\n");
+        }
     }
     printf("[0] Cancel\nSelect skill: ");
     int choice;
@@ -145,40 +250,70 @@ void useSkill(Champion *c, Game *game, Monster enemies[], int enemyCount) {
             int target = selectTarget(enemies, enemyCount);
             if (target < 0) return;
             if (ls->type == LTE_DAMAGE) {
-                enemies[target].health -= ls->value;
+                double effCrit = CRIT_CHANCE + champCritBonus[ci];
+                if (effCrit > 0.95) effCrit = 0.95;
+                int dmg = ls->value;
+                int crit = ((double)rand() / (double)RAND_MAX) < effCrit;
+                if (crit) dmg = (int)(dmg * CRIT_DAMAGE + 0.5);
+                enemies[target].health -= dmg;
                 if (enemies[target].health < 0) enemies[target].health = 0;
                 printf("%s used %s on %s (%d dmg)\n", champion_string[c->class], ls->name, enemies[target].name, ls->value);
-            } else if (ls->type == DEBUFF) {
+            } else if (ls->type == LTE_DEBUFF) {
                 enemies[target].damage -= ls->value;
                 if (enemies[target].damage < 0) enemies[target].damage = 0;
                 printf("%s used %s on %s (-%d dmg)\n", champion_string[c->class], ls->name, enemies[target].name, ls->value);
             }
             break;
         }
-        case AOE_ENEMY: {
-            if (ls->type == DAMAGE) {
+        case LST_AOE_ENEMY: {
+            if (ls->type == LTE_DAMAGE) {
                 if (ls->hits == -1) {
+                    int targets = 0;
+                    for (int i = 0; i < enemyCount; i++) {
+                        if (enemies[i].health > 0) targets++;
+                    }
                     for (int i = 0; i < enemyCount; i++) {
                         if (enemies[i].health > 0) {
-                            enemies[i].health -= ls->value;
+                            int dmg = ls->value;
+                            if (actionCrit) dmg = (int)(dmg * CRIT_DAMAGE + 0.5);
+                            enemies[i].health -= dmg;
                             if (enemies[i].health < 0) enemies[i].health = 0;
                         }
                     }
-                    printf("%s used %s on all enemies (%d each)\n", champion_string[c->class], ls->name, ls->value);
+                    printf("%s used %s on all %d enemies (%d each%s)\n", champion_string[c->class], ls->name, targets, ls->value, actionCrit ? " [CRITICAL]" : "");
                 } else {
                     int applied = 0;
                     for (int i = 0; i < enemyCount && applied < ls->hits; i++) {
                         if (enemies[i].health > 0) {
-                            enemies[i].health -= ls->value;
+                            int dmg = ls->value;
+                            if (actionCrit) dmg = (int)(dmg * CRIT_DAMAGE + 0.5);
+                            enemies[i].health -= dmg;
                             if (enemies[i].health < 0) enemies[i].health = 0;
                             applied++;
                         }
                     }
-                    printf("%s used %s and hit %d enemy(ies) (%d each)\n", champion_string[c->class], ls->name, applied, ls->value);
+                    printf("%s used %s and hit %d enemy(ies) (%d each%s)\n", champion_string[c->class], ls->name, applied, ls->value, actionCrit ? " [CRITICAL]" : "");
                 }
             } else if (ls->type == LTE_DEBUFF) {
-                for (int i=0;i<enemyCount;i++) if (enemies[i].health>0) { enemies[i].damage -= ls->value; if (enemies[i].damage<0) enemies[i].damage=0; }
-                printf("%s used %s on all enemies (-%d dmg)\n", champion_string[c->class], ls->name, ls->value);
+                if (ls->hits == -1) {
+                    for (int i = 0; i < enemyCount; i++) {
+                        if (enemies[i].health > 0) {
+                            enemies[i].damage -= ls->value;
+                            if (enemies[i].damage < 0) enemies[i].damage = 0;
+                        }
+                    }
+                    printf("%s used %s on all enemies (-%d dmg)\n", champion_string[c->class], ls->name, ls->value);
+                } else {
+                    int applied = 0;
+                    for (int i = 0; i < enemyCount && applied < ls->hits; i++) {
+                        if (enemies[i].health > 0) {
+                            enemies[i].damage -= ls->value;
+                            if (enemies[i].damage < 0) enemies[i].damage = 0;
+                            applied++;
+                        }
+                    }
+                    printf("%s used %s and debuffed %d enemy(ies) (-%d dmg)\n", champion_string[c->class], ls->name, applied, ls->value);
+                }
             }
             break;
         }
@@ -190,7 +325,7 @@ void useSkill(Champion *c, Game *game, Monster enemies[], int enemyCount) {
                 if (game->champion[target].health > game->champion[target].maxHealth)
                     game->champion[target].health = game->champion[target].maxHealth;
                 printf("%s used %s on Champion %d (+%d HP)\n", champion_string[c->class], ls->name, target+1, ls->value);
-            } else if (ls->type == BUFF) {
+            } else if (ls->type == LTE_BUFF) {
                 game->champion[target].damage += ls->value;
                 printf("%s used %s on Champion %d (+%d dmg)\n", champion_string[c->class], ls->name, target+1, ls->value);
             }
@@ -198,32 +333,70 @@ void useSkill(Champion *c, Game *game, Monster enemies[], int enemyCount) {
         }
         case LST_AOE_ALLY: {
             if (ls->type == LTE_HEAL) {
-                for (int i=0;i<3;i++) if (game->champion[i].health>0) { game->champion[i].health += ls->value; if (game->champion[i].health>game->champion[i].maxHealth) game->champion[i].health=game->champion[i].maxHealth; }
-                printf("%s used %s on all allies (+%d HP)\n", champion_string[c->class], ls->name, ls->value);
+                if (ls->hits == -1) {
+                    for (int i = 0; i < 3; i++) {
+                        if (game->champion[i].health > 0) {
+                            game->champion[i].health += ls->value;
+                            if (game->champion[i].health > game->champion[i].maxHealth)
+                                game->champion[i].health = game->champion[i].maxHealth;
+                        }
+                    }
+                    printf("%s used %s on all allies (+%d HP)\n", champion_string[c->class], ls->name, ls->value);
+                } else {
+                    int applied = 0;
+                    for (int i = 0; i < 3 && applied < ls->hits; i++) {
+                        if (game->champion[i].health > 0) {
+                            game->champion[i].health += ls->value;
+                            if (game->champion[i].health > game->champion[i].maxHealth)
+                                game->champion[i].health = game->champion[i].maxHealth;
+                            applied++;
+                        }
+                    }
+                    printf("%s used %s on %d ally(ies) (+%d HP)\n", champion_string[c->class], ls->name, applied, ls->value);
+                }
             } else if (ls->type == LTE_BUFF) {
-                for (int i=0;i<3;i++) if (game->champion[i].health>0) { game->champion[i].damage += ls->value; }
-                printf("%s used %s on all allies (+%d dmg)\n", champion_string[c->class], ls->name, ls->value);
+                if (ls->hits == -1) {
+                    for (int i = 0; i < 3; i++) {
+                        if (game->champion[i].health > 0) game->champion[i].damage += ls->value;
+                    }
+                    printf("%s used %s on all allies (+%d dmg)\n", champion_string[c->class], ls->name, ls->value);
+                } else {
+                    int applied = 0;
+                    for (int i = 0; i < 3 && applied < ls->hits; i++) {
+                        if (game->champion[i].health > 0) {
+                            game->champion[i].damage += ls->value;
+                            applied++;
+                        }
+                    }
+                    printf("%s used %s on %d ally(ies) (+%d dmg)\n", champion_string[c->class], ls->name, applied, ls->value);
+                }
             }
             break;
         }
     }
 }
 int selectAlly(Game *game) {
-    printf("\n--- Select Ally ---\n");
+    printf("\n╔══════════════════════════════════════════════╗\n");
+    printf("║ %-44s ║\n", "*** Select Ally ***");
+    printf("╠══════════════════════════════════════════════╣\n");
     int aliveMap[3];
     int counter = 0;
     int i;
     for (i = 0; i < 3; i++) {
         if (game->champion[i].health > 0) {
             aliveMap[i] = 1;
-            printf("[%d] Champion %d - %s (HP: %d/%d)\n",
+            char line[128];
+            snprintf(line, sizeof(line), "[%d] Champion %d - %s (HP: %d/%d)",
                    ++counter, i + 1, champion_string[game->champion[i].class],
                    game->champion[i].health, game->champion[i].maxHealth);
+            printf("║ %-44s ║\n", line);
         } else {
             aliveMap[i] = 0;
         }
     }
-    printf("[0] Cancel\nSelect: ");
+    printf("║ %-44s ║\n", "[0] Cancel");
+    printf("╚══════════════════════════════════════════════╝\n");
+    printf("Select: ");
     
     int choice;
     if (scanf("%d", &choice) != 1) {
@@ -238,26 +411,278 @@ int selectAlly(Game *game) {
     }
     return target;
 }
+static void handleDefeat(Game *game) {
+    printf("\n╔══════════════════════════════════════════════╗\n");
+    printf("║ %-44s ║\n", "*** DEFEAT ***");
+    printf("╠══════════════════════════════════════════════╣\n");
+    printf("║ %-44s ║\n", "All champions defeated!");
+    printf("╚══════════════════════════════════════════════╝\n");
+    FILE *fp;
+    char *saveFiles[20];
+    int saveCount = 0;
+    fp = popen("ls saves/*.json", "r");
+    if (fp) {
+        char buf[256];
+        while (fgets(buf, sizeof(buf), fp) && saveCount < 20) {
+            buf[strcspn(buf, "\n")] = 0;
+            saveFiles[saveCount] = malloc(strlen(buf)+1);
+            strcpy(saveFiles[saveCount], buf);
+            saveCount++;
+        }
+        pclose(fp);
+    }
+    int loadChoice = -1;
+    do {
+        printf("\n╔══════════════════════════════════════════════╗\n");
+        printf("║ %-44s ║\n", "*** Load Save File ***");
+        printf("╠══════════════════════════════════════════════╣\n");
+        for (int s = 0; s < saveCount; s++) {
+            char line[128];
+            snprintf(line, sizeof(line), "[%d] Load %s", s+1, saveFiles[s]);
+            printf("║ %-44s ║\n", line);
+        }
+        printf("║ %-44s ║\n", "[0] Exit to menu");
+        printf("╚══════════════════════════════════════════════╝\n");
+        printf("Enter your choice: ");
+        if (scanf("%d", &loadChoice) != 1) {
+            while (getchar() != '\n');
+            printf("Invalid input, please try again.\n");
+            loadChoice = -1;
+            continue;
+        }
+        if (loadChoice == 0) {
+            printf("Returning to main menu...\n");
+            extern void showMainMenu(Game *game);
+            showMainMenu(game);
+            break;
+        } else if (loadChoice > 0 && loadChoice <= saveCount) {
+            printf("Loading %s...\n", saveFiles[loadChoice-1]);
+            extern void initGame(Game *game);
+            initGame(game);
+            if (!loadSaveIntoGame(game, saveFiles[loadChoice-1])) {
+                printf("Failed to load selected save. Returning to main menu...\n");
+            }
+            extern void showMainMenu(Game *game);
+            showMainMenu(game);
+            break;
+        } else {
+            printf("Invalid input, please try again.\n");
+            loadChoice = -1;
+        }
+    } while (loadChoice == -1);
+    for (int s = 0; s < saveCount; s++) free(saveFiles[s]);
+}
+
 void initCombat(Game *game) {
-    simulateCombat(game);
+    printf("\n=== COMBAT START ===\n");
+    
+    LinkedList *monsterList = &((LocationData*)game->locationData)[game->level].monsterList;
+    int totalMonsters = monsterList->size;
+    
+    if (totalMonsters == 0) {
+        printf("No monsters to fight!\n");
+        return;
+    }
+    
+    int fightCount = 3;
+    if (fightCount > totalMonsters) fightCount = totalMonsters;
+    
+    Monster localEnemies[fightCount];
+    int enemyCount = 0;
+    int selected[totalMonsters];
+    int i;
+    for (i = 0; i < totalMonsters; i++) selected[i] = 0;
+    
+    srand(time(NULL));
+    
+    while (enemyCount < fightCount) {
+        int randIndex = rand() % totalMonsters;
+        
+        if (selected[randIndex] == 0) {
+            selected[randIndex] = 1;
+            
+            Node *current = monsterList->head;
+            int k;
+            for (k = 0; k < randIndex; k++) {
+                current = current->next;
+            }
+            
+            Monster *m = (Monster *)current->value;
+            localEnemies[enemyCount].health = m->health;
+            localEnemies[enemyCount].maxHealth = m->maxHealth;
+            localEnemies[enemyCount].damage = m->damage;
+            strcpy(localEnemies[enemyCount].name, m->name);
+            enemyCount++;
+        }
+    }
+    
+    printf("%d monsters appear!\n", enemyCount);
+    
+    int championIndex = 0;
+    int monsterIndex = 0;
+    int downedMonster = 0;
+    int woundedChampions = 0;
+    int totalExp = 0;
+    
+    while (1) {
+        if (championIndex >= 3) championIndex = 0;
+        
+        while (game->champion[championIndex].health <= 0) {
+            championIndex++;
+            if (championIndex >= 3) championIndex = 0;
+        }
+        
+        printf("\n=== Champion %d (%s)'s Turn (HP: %d/%d) ===\n", 
+               championIndex + 1, champion_string[game->champion[championIndex].class],
+               game->champion[championIndex].health, game->champion[championIndex].maxHealth);
+        printf("[1] Attack\n[2] Use Skill\n[3] Use Item\n[4] View Stats\nChoose action: ");
+        
+        int choice;
+        if (scanf("%d", &choice) != 1) {
+            while (getchar() != '\n');
+            printf("Invalid input.\n");
+            continue;
+        }
+        
+        switch (choice) {
+            case 1: {
+                int target = selectTarget(localEnemies, enemyCount);
+                if (target < 0) continue;
+                
+                localEnemies[target].health -= game->champion[championIndex].damage;
+                if (localEnemies[target].health <= 0) {
+                    localEnemies[target].health = 0;
+                    downedMonster++;
+                    totalExp += 50;
+                }
+                
+                printf("Champion %d attacks %s for %d damage! (HP: %d/%d)\n",
+                       championIndex + 1, localEnemies[target].name, 
+                       game->champion[championIndex].damage, localEnemies[target].health, 
+                       localEnemies[target].maxHealth);
+                
+                if (downedMonster >= enemyCount) {
+                    printf("\n=== VICTORY ===\n");
+                    printf("All monsters defeated!\n");
+                    printf("Experience gained: %d\n", totalExp);
+                    addXp(game, totalExp);
+                    return;
+                }
+                
+                championIndex++;
+                decrementLocalCooldowns();
+                break;
+            }
+            case 2: {
+
+                useSkill(&game->champion[championIndex], game, localEnemies, enemyCount);
+                
+                downedMonster = 0;
+                int k;
+                for (k = 0; k < enemyCount; k++) {
+                    if (localEnemies[k].health <= 0) downedMonster++;
+                }
+                
+                if (downedMonster >= enemyCount) {
+                    printf("\n=== VICTORY ===\n");
+                    printf("All monsters defeated!\n");
+                    printf("Experience gained: %d\n", totalExp);
+                    addXp(game, totalExp);
+                    return;
+                }
+                
+                championIndex++;
+                decrementLocalCooldowns();
+                break;
+            }
+            case 3:
+                useItem(game);
+                break;
+            case 4:
+                viewStatsMenu(game, localEnemies, enemyCount);
+                break;
+            default:
+                printf("Invalid choice.\n");
+                break;
+        }
+        
+        while (monsterIndex < enemyCount && localEnemies[monsterIndex].health <= 0) {
+            monsterIndex++;
+        }
+        
+        // Reset monster index if it's out of bounds
+        if (monsterIndex >= enemyCount || localEnemies[monsterIndex].health <= 0) {
+            monsterIndex = 0;
+            while (monsterIndex < enemyCount && localEnemies[monsterIndex].health <= 0) {
+                monsterIndex++;
+            }
+        }
+        
+        if (monsterIndex >= enemyCount) continue;
+        int aliveChampions[3];
+        int aliveCount = 0;
+        for (i = 0; i < 3; i++) {
+            if (game->champion[i].health > 0) {
+                aliveChampions[aliveCount++] = i;
+            }
+        }
+        
+        if (aliveCount == 0) {
+            printf("\n=== DEFEAT ===\n");
+            printf("All champions defeated!\n");
+            game->initialized = 0;
+            return;
+        }
+        
+        int targetIdx = aliveChampions[rand() % aliveCount];
+        game->champion[targetIdx].health -= localEnemies[monsterIndex].damage;
+        if (game->champion[targetIdx].health <= 0) {
+            game->champion[targetIdx].health = 0;
+            woundedChampions++;
+        }
+        
+        printf("\n%s attacks Champion %d for %d damage! (HP: %d/%d)\n",
+               localEnemies[monsterIndex].name, targetIdx + 1, 
+               localEnemies[monsterIndex].damage,
+               game->champion[targetIdx].health, 
+               game->champion[targetIdx].maxHealth);
+        
+        if (woundedChampions >= 3) {
+            printf("\n=== DEFEAT ===\n");
+            printf("All champions defeated!\n");
+            game->initialized = 0;
+            return;
+        }
+        
+        monsterIndex++;
+        if (monsterIndex >= enemyCount) monsterIndex = 0;
+        
+        printCombatStatus(game, localEnemies, enemyCount);
+    }
 }
 int selectTarget(Monster enemies[], int enemyCount) {
     while (1) {
-        printf("\n--- Select Target ---\n");
+        printf("\n╔══════════════════════════════════════════════╗\n");
+        printf("║ %-44s ║\n", "*** Select Target ***");
+        printf("╠══════════════════════════════════════════════╣\n");
         int aliveMap[enemyCount];
         int counter = 0;
         int i;
         for (i = 0; i < enemyCount; i++) {
             if (enemies[i].health > 0){
                 aliveMap[i] = 1;
-                printf("[%d] %s (HP: %d/%d)\n", 
+                char line[128];
+                snprintf(line, sizeof(line), "[%d] %s (HP: %d/%d)", 
                        ++counter, enemies[i].name, 
                        enemies[i].health, enemies[i].maxHealth);
+                printf("║ %-44s ║\n", line);
             } else {
                 aliveMap[i] = 0;
             }
         }
-        printf("[0] Cancel\nSelect: ");
+        printf("║ %-44s ║\n", "[0] Cancel");
+        printf("╚══════════════════════════════════════════════╝\n");
+        printf("Select: ");
         
         int choice;
         if (scanf("%d", &choice) != 1) {
@@ -279,7 +704,14 @@ int selectTarget(Monster enemies[], int enemyCount) {
 }
 void viewStatsMenu(Game *game, Monster enemies[], int enemyCount) {
     while (1) {
-        printf("\n=== VIEW STATS ===\n[1] View All Champions\n[2] View Monster\n[0] Back\nChoice: ");
+        printf("\n╔══════════════════════════════════════════════╗\n");
+        printf("║ %-44s ║\n", "*** VIEW STATS ***");
+        printf("╠══════════════════════════════════════════════╣\n");
+        printf("║ %-44s ║\n", "[1] View All Champions");
+        printf("║ %-44s ║\n", "[2] View Monster");
+        printf("║ %-44s ║\n", "[0] Back");
+        printf("╚══════════════════════════════════════════════╝\n");
+        printf("Choice: ");
         int choice;
         if (scanf("%d", &choice) != 1) {
             while (getchar() != '\n');
@@ -289,28 +721,39 @@ void viewStatsMenu(Game *game, Monster enemies[], int enemyCount) {
         if (choice == 0) break;
         
         if (choice == 1) {
-            printf("\n--- All Champions ---\n");
+            printf("\n╔══════════════════════════════════════════════╗\n");
+            printf("║ %-44s ║\n", "*** All Champions ***");
+            printf("╠══════════════════════════════════════════════╣\n");
             int i;
             for (i = 0; i < 3; i++) {
                 Champion c = game->champion[i];
-                printf("Champion %d - %s: HP %d/%d | Damage: %d%s\n",
+                if (c.maxHealth == 0) continue;
+                char line[128];
+                snprintf(line, sizeof(line), "Champion %d - %s: HP %d/%d | Damage: %d%s",
                        i + 1, champion_string[c.class],
                        c.health, c.maxHealth, c.damage,
                        c.health <= 0 ? " [DEFEATED]" : "");
+                printf("║ %-44s ║\n", line);
             }
+            printf("╚══════════════════════════════════════════════╝\n");
         } else if (choice == 2) {
-            printf("\nSelect Monster:\n");
+            printf("\n╔══════════════════════════════════════════════╗\n");
+            printf("║ %-44s ║\n", "*** Select Monster ***");
+            printf("╠══════════════════════════════════════════════╣\n");
             int aliveMap[enemyCount];
             int counter = 0; 
             int i;
             for (i = 0; i < enemyCount; i++) {
                 if (enemies[i].health > 0) {
                     aliveMap[i] = 1;
-                    printf("[%d] %s\n", ++counter, enemies[i].name);
+                    char line[128];
+                    snprintf(line, sizeof(line), "[%d] %s", ++counter, enemies[i].name);
+                    printf("║ %-44s ║\n", line);
                 } else {
                     aliveMap[i] = 0;
                 }
             }
+            printf("╚══════════════════════════════════════════════╝\n");
             printf("Choice: ");
             int monChoice;
             if (scanf("%d", &monChoice) != 1) {
@@ -325,35 +768,67 @@ void viewStatsMenu(Game *game, Monster enemies[], int enemyCount) {
     }
 }
 void showMonsterStats(Monster *m, int index) {
-    printf("\n--- Monster %d ---\n", index);
-    printf("Name: %s\n", m->name);
-    printf("HP: %d/%d\n", m->health, m->maxHealth);
-    printf("Damage: %d\n", m->damage);
-    printf("------------------\n");
+    char title[64];
+    snprintf(title, sizeof(title), "*** Monster %d ***", index);
+    printf("\n╔══════════════════════════════════════════════╗\n");
+    printf("║ %-44s ║\n", title);
+    printf("╠══════════════════════════════════════════════╣\n");
+    char line[128];
+    snprintf(line, sizeof(line), "Name: %s", m->name);
+    printf("║ %-44s ║\n", line);
+    snprintf(line, sizeof(line), "HP: %d/%d", m->health, m->maxHealth);
+    printf("║ %-44s ║\n", line);
+    snprintf(line, sizeof(line), "Damage: %d", m->damage);
+    printf("║ %-44s ║\n", line);
+    printf("╚══════════════════════════════════════════════╝\n");
 }
 void printCombatStatus(Game *game, Monster enemies[], int enemyCount) {
-    printf("\n=== COMBAT STATUS ===\nChampions:\n");
+    printf("\n╔══════════════════════════════════════════════╗\n");
+    printf("║ %-44s ║\n", "*** COMBAT STATUS ***");
+    printf("╠══════════════════════════════════════════════╣\n");
+    printf("║ %-44s ║\n", "Champions:");
+    printf("╠══════════════════════════════════════════════╣\n");
     int i;
     for (i = 0; i < 3; i++) {
+        char line[128];
         if (game->champion[i].health > 0) {
-            printf("  [%d] %s: HP %d/%d\n", i + 1, 
-                   champion_string[game->champion[i].class],
-                   game->champion[i].health, game->champion[i].maxHealth);
+            if (champBuffTurns[i] > 0) {
+                int critp = (int)(champCritBonus[i] * 100 + 0.5);
+                snprintf(line, sizeof(line), "[%d] %s: HP %d/%d | Buff:+%d ATK, +%d%% CRIT (T:%d)", i + 1,
+                       champion_string[game->champion[i].class],
+                       game->champion[i].health, game->champion[i].maxHealth,
+                       champBuffValue[i], critp, champBuffTurns[i]);
+            } else {
+                snprintf(line, sizeof(line), "[%d] %s: HP %d/%d", i + 1,
+                       champion_string[game->champion[i].class],
+                       game->champion[i].health, game->champion[i].maxHealth);
+            }
         } else {
-            printf("  [%d] DEFEATED\n", i + 1);
+            snprintf(line, sizeof(line), "[%d] DEFEATED", i + 1);
         }
+        printf("║ %-44s ║\n", line);
     }
-    printf("Monsters:\n");
+    printf("╠══════════════════════════════════════════════╣\n");
+    printf("║ %-44s ║\n", "Monsters:");
+    printf("╠══════════════════════════════════════════════╣\n");
     int j;
     for (j = 0; j < enemyCount; j++) {
+        char line[128];
         if (enemies[j].health > 0) {
-            printf("  %s: %d/%d HP\n", enemies[j].name, 
-                   enemies[j].health, enemies[j].maxHealth);
+            if (enemyDebuffTurns[j] > 0) {
+                snprintf(line, sizeof(line), "[%d] %s: HP %d/%d | Debuff:-%d (T:%d)", j + 1, enemies[j].name,
+                       enemies[j].health, enemies[j].maxHealth,
+                       enemyDebuffValue[j], enemyDebuffTurns[j]);
+            } else {
+                snprintf(line, sizeof(line), "[%d] %s: HP %d/%d", j + 1, enemies[j].name,
+                       enemies[j].health, enemies[j].maxHealth);
+            }
         } else {
-            printf("  %s: DEFEATED\n", enemies[j].name);
+            snprintf(line, sizeof(line), "[%d] %s: DEFEATED", j + 1, enemies[j].name);
         }
+        printf("║ %-44s ║\n", line);
     }
-    printf("=====================\n");
+    printf("╚══════════════════════════════════════════════╝\n");
 }
 void createCombat(Game *game) {
     initCombat(game);
