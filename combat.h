@@ -1,3 +1,3 @@
 #include "game_object.h"
 
-void createCombat(Game * game);
+int createCombat(Game * game);

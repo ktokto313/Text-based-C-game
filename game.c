@@ -113,7 +113,10 @@ void doGameTick(Game * game){
 
 			switch (choice) {
 				case 1:
-					explore(game);
+					if (explore(game)) {//Team died
+						printf("You died! You wake up at home\n");
+						teleport(game, 0);
+					}
 					break;
 				case 2:
 					move(game);

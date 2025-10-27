@@ -20,6 +20,7 @@ int getWeightedScenario(int weights[], int size) {
     return size - 1;
 }
 
+// Return 1 if team died
 int explore(Game* game) {
     printf("\n=== EXPLORATION ===\n");
     printf("Exploring the area...\n");
@@ -29,7 +30,7 @@ int explore(Game* game) {
         switch (scenario) {
             case 0:
                 printf("*** COMBAT ENCOUNTER ***\n");
-                createCombat(game);
+                if (!createCombat(game)) return 1;
                 break;
             case 1:
                 printf("*** MERCHANT ENCOUNTER ***\n");
@@ -37,7 +38,7 @@ int explore(Game* game) {
                 break;
             case 2:
                 printf("*** SIDE EVENT ***\n");
-                handleSideEvent(game);
+                if (!handleSideEvent(game)) return 1;
                 break;
         }
         if (i < game->config.explorationTurn) {

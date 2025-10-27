@@ -10,66 +10,86 @@ int selectAlly(Game *game);
 void showMonsterStats(Monster *m, int index);
 void viewStatsMenu(Game *game, Monster enemies[], int enemyCount);
 void useSkill(Champion *c, Game *game, Monster enemies[], int enemyCount);
-void initCombat(Game *game);
 void useItem(Game *game) {
     printf("\n=== Use Item (stub) ===\n");
     printf("No items implemented. Returning to combat.\n");
 }
-typedef enum { LST_SINGLE_ENEMY, LST_AOE_ENEMY, LST_SINGLE_ALLY, LST_AOE_ALLY } LocalTarget;
-typedef enum { LTE_DAMAGE, LTE_DEBUFF, LTE_HEAL, LTE_BUFF } LocalType;
+#define FOREACH_TARGET(TARGET) \
+        TARGET(SINGLE_ENEMY)   \
+        TARGET(AOE_ENEMY)   \
+        TARGET(SINGLE_ALLY)   \
+        TARGET(AOE_ALLY)   \
+
+#define FOREACH_TYPE(TYPE) \
+        TYPE(DAMAGE)   \
+        TYPE(DEBUFF)   \
+        TYPE(HEAL)   \
+        TYPE(BUFF)   \
+
+enum LocalTarget {
+    FOREACH_TARGET(GENERATE_ENUM)
+};
+
+static const char * const target_string[] = {
+    FOREACH_TARGET(GENERATE_STRING)
+};
+
+enum LocalType {
+    FOREACH_TYPE(GENERATE_ENUM)
+};
+
+static const char * const target_type[] = {
+    FOREACH_TYPE(GENERATE_STRING)
+};
+
 typedef struct {
     char name[40];
-    LocalTarget target;
-    LocalType type;
+    enum LocalTarget target;
+    enum LocalType type;
     int value;
     int cooldown;
     int hits;
 } LocalSkill;
-static const char *local_effect_target_string[] = {
-    "SINGLE_ENEMY", "AOE_ENEMY", "SINGLE_ALLY", "AOE_ALLY"
-};
-static const char *local_effect_type_string[] = {
-    "DAMAGE", "DEBUFF", "HEAL", "BUFF"
-};
-static int localCooldowns[3][5] = {{0}};
+
+int localCooldowns[3][5] = {{0}};
 static LocalSkill wizardSkills[] = {
-    {"Electric Discharge", LST_SINGLE_ENEMY, LTE_DAMAGE, 20, 2, 1},
-    {"Fireball", LST_AOE_ENEMY, LTE_DAMAGE, 12, 3, -1},
-    {"Restoration", LST_SINGLE_ALLY, LTE_HEAL, 25, 3, 1},
-    {"Healing Ritual", LST_AOE_ALLY, LTE_HEAL, 15, 4, -1}
+    {"Electric Discharge", SINGLE_ENEMY, DAMAGE, 20, 2, 1},
+    {"Fireball", AOE_ENEMY, DAMAGE, 12, 3, -1},
+    {"Restoration", SINGLE_ALLY, HEAL, 25, 3, 1},
+    {"Healing Ritual", AOE_ALLY, HEAL, 15, 4, -1}
 };
 static int wizardSkillCount = sizeof(wizardSkills) / sizeof(wizardSkills[0]);
 static LocalSkill knightSkills[] = {
-    {"Crippling Blow", LST_AOE_ENEMY, LTE_DAMAGE, 12, 2, -1},
-    {"Enrage", LST_SINGLE_ALLY, LTE_BUFF, 10, 4, 1},
-    {"Whirlwind", LST_AOE_ENEMY, LTE_DAMAGE, 10, 2, -1}
+    {"Crippling Blow", AOE_ENEMY, DAMAGE, 12, 2, -1},
+    {"Enrage", SINGLE_ALLY, BUFF, 10, 4, 1},
+    {"Whirlwind", AOE_ENEMY, DAMAGE, 10, 2, -1}
 };
 static int knightSkillCount = sizeof(knightSkills) / sizeof(knightSkills[0]);
 static LocalSkill paladinSkills[] = {
-    {"Firebrand", LST_AOE_ALLY, LTE_BUFF, 3, 3, -1},
-    {"Healing Tears", LST_AOE_ALLY, LTE_BUFF, 3, 3, -1},
-    {"Bouncing Shield", LST_AOE_ENEMY, LTE_DAMAGE, 14, 3, 2}
+    {"Firebrand", AOE_ALLY, BUFF, 3, 3, -1},
+    {"Healing Tears", AOE_ALLY, BUFF, 3, 3, -1},
+    {"Bouncing Shield", AOE_ENEMY, DAMAGE, 14, 3, 2}
 };
 static int paladinSkillCount = sizeof(paladinSkills) / sizeof(paladinSkills[0]);
 
 static LocalSkill rogueSkills[] = {
-    {"Backlash", LST_SINGLE_ENEMY, LTE_DAMAGE, 18, 1, 1},
-    {"Throwing Knife", LST_AOE_ENEMY, LTE_DAMAGE, 8, 2, -1},
-    {"Corrupted Blade", LST_SINGLE_ENEMY, LTE_DEBUFF, 4, 3, 1}
+    {"Backlash", SINGLE_ENEMY, DAMAGE, 18, 1, 1},
+    {"Throwing Knife", AOE_ENEMY, DAMAGE, 8, 2, -1},
+    {"Corrupted Blade", SINGLE_ENEMY, DEBUFF, 4, 3, 1}
 };
 static int rogueSkillCount = sizeof(rogueSkills) / sizeof(rogueSkills[0]);
 static LocalSkill elfSkills[] = {
-    {"First Aid", LST_SINGLE_ALLY, LTE_HEAL, 20, 2, 1},
-    {"Ricochet", LST_AOE_ENEMY, LTE_DAMAGE, 9, 2, -1},
-    {"Marksman's Fang", LST_SINGLE_ENEMY, LTE_DAMAGE, 22, 3, 1}
+    {"First Aid", SINGLE_ALLY, HEAL, 20, 2, 1},
+    {"Ricochet", AOE_ENEMY, DAMAGE, 9, 2, -1},
+    {"Marksman's Fang", SINGLE_ENEMY, DAMAGE, 22, 3, 1}
 };
 static int elfSkillCount = sizeof(elfSkills) / sizeof(elfSkills[0]);
-static int championIndexOf(Game *game, Champion *c) {
+int championIndexOf(Game *game, Champion *c) {
     if (!game || !c) return -1;
     for (int i = 0; i < 3; i++) if (&game->champion[i] == c) return i;
     return -1;
 }
-static void decrementLocalCooldowns(void) {
+void decrementLocalCooldowns(void) {
     for (int ci = 0; ci < 3; ci++) {
         for (int si = 0; si < 4; si++) {
             if (localCooldowns[ci][si] > 0) localCooldowns[ci][si]--;
@@ -93,8 +113,8 @@ void useSkill(Champion *c, Game *game, Monster enemies[], int enemyCount) {
     for (int s = 0; s < skillCount; s++) {
         LocalSkill *ls = &skillList[s];
         printf("[%d] %s - %s (%s) Value:%d CD:%d%s\n",
-               s+1, ls->name, local_effect_target_string[ls->target],
-               local_effect_type_string[ls->type], ls->value, localCooldowns[ci][s],
+               s+1, ls->name, target_string[ls->target],
+               target_type[ls->type], ls->value, localCooldowns[ci][s],
                localCooldowns[ci][s] > 0 ? " *ON COOLDOWN*" : "");
     }
     printf("[0] Cancel\nSelect skill: ");
@@ -117,23 +137,23 @@ void useSkill(Champion *c, Game *game, Monster enemies[], int enemyCount) {
     LocalSkill *ls = &skillList[sidx];
     localCooldowns[ci][sidx] = ls->cooldown;
     switch (ls->target) {
-        case LST_SINGLE_ENEMY: {
+        case SINGLE_ENEMY: {
             int target = selectTarget(enemies, enemyCount);
             if (target < 0) return;
 
-            if (ls->type == LTE_DAMAGE) {
+            if (ls->type == DAMAGE) {
                 enemies[target].health -= ls->value;
                 if (enemies[target].health < 0) enemies[target].health = 0;
                 printf("%s used %s on %s (%d dmg)\n", champion_string[c->class], ls->name, enemies[target].name, ls->value);
-            } else if (ls->type == LTE_DEBUFF) {
+            } else if (ls->type == DEBUFF) {
                 enemies[target].damage -= ls->value;
                 if (enemies[target].damage < 0) enemies[target].damage = 0;
                 printf("%s used %s on %s (-%d dmg)\n", champion_string[c->class], ls->name, enemies[target].name, ls->value);
             }
             break;
         }
-        case LST_AOE_ENEMY: {
-            if (ls->type == LTE_DAMAGE) {
+        case AOE_ENEMY: {
+            if (ls->type == DAMAGE) {
                 if (ls->hits == -1) {
                     for (int i = 0; i < enemyCount; i++) {
                         if (enemies[i].health > 0) {
@@ -153,7 +173,7 @@ void useSkill(Champion *c, Game *game, Monster enemies[], int enemyCount) {
                     }
                     printf("%s used %s and hit %d enemy(ies) (%d each)\n", champion_string[c->class], ls->name, applied, ls->value);
                 }
-            } else if (ls->type == LTE_DEBUFF) {
+            } else if (ls->type == DEBUFF) {
                 if (ls->hits == -1) {
                     for (int i = 0; i < enemyCount; i++) {
                         if (enemies[i].health > 0) {
@@ -176,23 +196,23 @@ void useSkill(Champion *c, Game *game, Monster enemies[], int enemyCount) {
             }
             break;
         }
-        case LST_SINGLE_ALLY: {
+        case SINGLE_ALLY: {
             int target = selectAlly(game);
             if (target < 0) return;
 
-            if (ls->type == LTE_HEAL) {
+            if (ls->type == HEAL) {
                 game->champion[target].health += ls->value;
                 if (game->champion[target].health > game->champion[target].maxHealth)
                     game->champion[target].health = game->champion[target].maxHealth;
                 printf("%s used %s on Champion %d (+%d HP)\n", champion_string[c->class], ls->name, target+1, ls->value);
-            } else if (ls->type == LTE_BUFF) {
+            } else if (ls->type == BUFF) {
                 game->champion[target].damage += ls->value;
                 printf("%s used %s on Champion %d (+%d dmg)\n", champion_string[c->class], ls->name, target+1, ls->value);
             }
             break;
         }
-        case LST_AOE_ALLY: {
-            if (ls->type == LTE_HEAL) {
+        case AOE_ALLY: {
+            if (ls->type == HEAL) {
                 if (ls->hits == -1) {
                     for (int i = 0; i < 3; i++) {
                         if (game->champion[i].health > 0) {
@@ -214,7 +234,7 @@ void useSkill(Champion *c, Game *game, Monster enemies[], int enemyCount) {
                     }
                     printf("%s used %s on %d ally(ies) (+%d HP)\n", champion_string[c->class], ls->name, applied, ls->value);
                 }
-            } else if (ls->type == LTE_BUFF) {
+            } else if (ls->type == BUFF) {
                 if (ls->hits == -1) {
                     for (int i = 0; i < 3; i++) {
                         if (game->champion[i].health > 0) game->champion[i].damage += ls->value;
@@ -265,13 +285,15 @@ int selectAlly(Game *game) {
     }
     return target;
 }
-void initCombat(Game *game) {
+
+// Return 1 if we won, return 0 if we lose
+int initCombat(Game *game) {
     printf("\n=== COMBAT START ===\n");
     LinkedList *monsterList = &((LocationData*)game->locationData)[game->level].monsterList;
     int totalMonsters = monsterList->size;
     if (totalMonsters == 0) {
         printf("No monsters to fight!\n");
-        return;
+        return 1;
     }
     int fightCount = 3;
     if (fightCount > totalMonsters) fightCount = totalMonsters;
@@ -339,7 +361,7 @@ void initCombat(Game *game) {
                     printf("All monsters defeated!\n");
                     printf("Experience gained: %d\n", totalExp);
                     addXp(game, totalExp);
-                    return;
+                    return 1;
                 }
                 championIndex++;
                 decrementLocalCooldowns();
@@ -357,7 +379,7 @@ void initCombat(Game *game) {
                     printf("All monsters defeated!\n");
                     printf("Experience gained: %d\n", totalExp);
                     addXp(game, totalExp);
-                    return;
+                    return 1;
                 }
                 championIndex++;
                 decrementLocalCooldowns();
@@ -395,7 +417,7 @@ void initCombat(Game *game) {
             printf("\n=== DEFEAT ===\n");
             printf("All champions defeated!\n");
             game->initialized = 0;
-            return;
+            return 0;
         }
         int targetIdx = aliveChampions[rand() % aliveCount];
         game->champion[targetIdx].health -= localEnemies[monsterIndex].damage;
@@ -412,7 +434,7 @@ void initCombat(Game *game) {
             printf("\n=== DEFEAT ===\n");
             printf("All champions defeated!\n");
             game->initialized = 0;
-            return;
+            return 0;
         }
         monsterIndex++;
         if (monsterIndex >= enemyCount) monsterIndex = 0;

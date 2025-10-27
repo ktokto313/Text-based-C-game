@@ -4,16 +4,32 @@
 #include "character.h"
 #include "sideEvent.h"
 
-void handleSideEvent(Game* game) {
+int handleTrap(Game * game);
+void handleChest(Game * game);
+
+// Return true if the team is alive
+// Return false otherwise
+int handleSideEvent(Game* game) {
     int eventType = rand() % 2;
     if (eventType == 0) {
-        handleTrap(game);
+        return handleTrap(game);
     } else {
         handleChest(game);
     }
+    return 1;
 }
 
-void handleTrap(Game* game) {
+// Return true if the team is alive,
+// return false if the team is ded
+int isAlive(Game * game) {
+    for (int i = 0;i < 3;i++) {
+        if (game->champion[i].health != 0 && 
+            game->champion[i].maxHealth != 0) return 0;
+    }
+    return 1;
+}
+
+int handleTrap(Game* game) {
     int trapChoice;
     while (1) {
         printf("You triggered a trap!\n");
@@ -30,6 +46,7 @@ void handleTrap(Game* game) {
                     for (int i = 0; i < 3; i++) {
                         if (game->champion[i].health > 0) {
                             addXp(game, game->config.trapDisarmExp);
+                            return 1;
                         }
                     }
                 } else {
@@ -46,8 +63,8 @@ void handleTrap(Game* game) {
                             }
                         }
                     }
+                    return isAlive(game);
                 }
-                return;
             }
             case 2:
                 printf("Taking trap damage!\n");
@@ -63,7 +80,7 @@ void handleTrap(Game* game) {
                         }
                     }
                 }
-                return;
+                return isAlive(game);
             default:
                 printf("Invalid choice. Please try again.\n");
                 break;

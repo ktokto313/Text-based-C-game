@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <dirent.h>
+#include <time.h>
 #include <errno.h>
 
 #include "game_object.h"
@@ -30,9 +31,13 @@ void initFileIO() {
 void saveGame(Game * game, int autosave) {
     char temp[50];
     if (!autosave) {
-        sprintf(temp, "%sday%dtime%d.json", SAVE_DIRECTORY, game->day, game->timeOfTheDay);
+        time_t t = time(NULL);
+        struct tm tm = *localtime(&t);
         printf("Enter the name of the file you want to save (leave blank for default name): ");
         fgets(temp, 50, stdin);
+        if (temp[0] == '\0') {
+            sprintf(temp, "%s%dday_%dhour_%dmin_day%d_time%d.json", SAVE_DIRECTORY, tm.tm_mday, tm.tm_hour, tm.tm_min, game->day, game->timeOfTheDay);
+        }
         sprintf(temp, "%s%s", SAVE_DIRECTORY, temp);
     } else {
         // There is a bug where it will always override slot 0 first
