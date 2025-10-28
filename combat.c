@@ -413,27 +413,20 @@ int initCombat(Game *game) {
                 aliveChampions[aliveCount++] = i;
             }
         }
-        if (aliveCount == 0) {
-            printf("\n=== DEFEAT ===\n");
-            printf("All champions defeated!\n");
-            game->initialized = 0;
-            return 0;
-        }
         int targetIdx = aliveChampions[rand() % aliveCount];
         game->champion[targetIdx].health -= localEnemies[monsterIndex].damage;
         if (game->champion[targetIdx].health <= 0) {
             game->champion[targetIdx].health = 0;
-            woundedChampions++;
+            aliveCount--;
         }
         printf("\n%s attacks Champion %d for %d damage! (HP: %d/%d)\n",
                localEnemies[monsterIndex].name, targetIdx + 1, 
                localEnemies[monsterIndex].damage,
                game->champion[targetIdx].health, 
                game->champion[targetIdx].maxHealth);
-        if (woundedChampions >= 3) {
+        if (aliveCount == 0) {
             printf("\n=== DEFEAT ===\n");
             printf("All champions defeated!\n");
-            game->initialized = 0;
             return 0;
         }
         monsterIndex++;

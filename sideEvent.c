@@ -23,10 +23,10 @@ int handleSideEvent(Game* game) {
 // return false if the team is ded
 int isAlive(Game * game) {
     for (int i = 0;i < 3;i++) {
-        if (game->champion[i].health != 0 && 
-            game->champion[i].maxHealth != 0) return 0;
+        if (game->champion[i].health > 0 && 
+            game->champion[i].maxHealth > 0) return 1;
     }
-    return 1;
+    return 0;
 }
 
 int handleTrap(Game* game) {

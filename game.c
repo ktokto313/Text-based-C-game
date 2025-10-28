@@ -40,7 +40,7 @@ void rest(Game * game) {
 			game->champion[i].health = game->champion[i].maxHealth;
 		}
 	}
-	printf("Your team rested and fully healed!");
+	printf("Your team rested and fully healed\n");
 	addTimeOfTheDay(game, 1);
 }
 void doTraining(Game * game) {
@@ -65,7 +65,7 @@ void doTraining(Game * game) {
 		case 3:
 			return;
 		default:
-			printf("Please input a number in range 1-3");
+			printf("Please input a number in range 1-3\n");
 			break;
 		}
 	}	
@@ -116,6 +116,7 @@ void doGameTick(Game * game){
 					if (explore(game)) {//Team died
 						printf("You died! You wake up at home\n");
 						teleport(game, 0);
+						rest(game);
 					}
 					break;
 				case 2:
@@ -126,7 +127,7 @@ void doGameTick(Game * game){
 						game->timeOfTheDay++;
 						teleport(game, 0);	
 					} else {
-						printf("Can teleport home when it's night time");
+						printf("Can't teleport home when it's night time!\n");
 					}
 					break;
 				case 4:
