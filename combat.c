@@ -4,6 +4,11 @@
 #include <time.h>
 #include "game_object.h"
 #include "character.h"
+
+// Combat constants
+#define CRIT_CHANCE 40      // 40% critical hit chance
+#define CRIT_MULTIPLIER 1.75   // 1.75x damage on crit (175%)
+
 void printCombatStatus(Game *game, Monster enemies[], int enemyCount);
 int selectTarget(Monster enemies[], int enemyCount);
 int selectAlly(Game *game);
@@ -142,9 +147,14 @@ void useSkill(Champion *c, Game *game, Monster enemies[], int enemyCount) {
             if (target < 0) return;
 
             if (ls->type == DAMAGE) {
-                enemies[target].health -= ls->value;
+                int damage = ls->value;
+                if (rand() % 100 < CRIT_CHANCE) {
+                    damage *= CRIT_MULTIPLIER;
+                    printf("*CRITICAL HIT!*\n");
+                }
+                enemies[target].health -= damage;
                 if (enemies[target].health < 0) enemies[target].health = 0;
-                printf("%s used %s on %s (%d dmg)\n", champion_string[c->class], ls->name, enemies[target].name, ls->value);
+                printf("%s used %s on %s (%d dmg)\n", champion_string[c->class], ls->name, enemies[target].name, damage);
             } else if (ls->type == DEBUFF) {
                 enemies[target].damage -= ls->value;
                 if (enemies[target].damage < 0) enemies[target].damage = 0;
@@ -154,24 +164,29 @@ void useSkill(Champion *c, Game *game, Monster enemies[], int enemyCount) {
         }
         case AOE_ENEMY: {
             if (ls->type == DAMAGE) {
+                int damage = ls->value;
+                if (rand() % 100 < CRIT_CHANCE) {
+                    damage *= CRIT_MULTIPLIER;
+                    printf("*CRITICAL HIT!*\n");
+                }
                 if (ls->hits == -1) {
                     for (int i = 0; i < enemyCount; i++) {
                         if (enemies[i].health > 0) {
-                            enemies[i].health -= ls->value;
+                            enemies[i].health -= damage;
                             if (enemies[i].health < 0) enemies[i].health = 0;
                         }
                     }
-                    printf("%s used %s on all enemies (%d each)\n", champion_string[c->class], ls->name, ls->value);
+                    printf("%s used %s on all enemies (%d each)\n", champion_string[c->class], ls->name, damage);
                 } else {
                     int applied = 0;
                     for (int i = 0; i < enemyCount && applied < ls->hits; i++) {
                         if (enemies[i].health > 0) {
-                            enemies[i].health -= ls->value;
+                            enemies[i].health -= damage;
                             if (enemies[i].health < 0) enemies[i].health = 0;
                             applied++;
                         }
                     }
-                    printf("%s used %s and hit %d enemy(ies) (%d each)\n", champion_string[c->class], ls->name, applied, ls->value);
+                    printf("%s used %s and hit %d enemy(ies) (%d each)\n", champion_string[c->class], ls->name, applied, damage);
                 }
             } else if (ls->type == DEBUFF) {
                 if (ls->hits == -1) {
@@ -346,7 +361,12 @@ int initCombat(Game *game) {
             case 1: {
                 int target = selectTarget(localEnemies, enemyCount);
                 if (target < 0) continue;
-                localEnemies[target].health -= game->champion[championIndex].damage;
+                int damage = game->champion[championIndex].damage;
+                if (rand() % 100 < CRIT_CHANCE) {
+                    damage *= CRIT_MULTIPLIER;
+                    printf("*CRITICAL HIT!*\n");
+                }
+                localEnemies[target].health -= damage;
                 if (localEnemies[target].health <= 0) {
                     localEnemies[target].health = 0;
                     downedMonster++;
@@ -354,7 +374,7 @@ int initCombat(Game *game) {
                 }
                 printf("Champion %d attacks %s for %d damage! (HP: %d/%d)\n",
                        championIndex + 1, localEnemies[target].name, 
-                       game->champion[championIndex].damage, localEnemies[target].health, 
+                       damage, localEnemies[target].health, 
                        localEnemies[target].maxHealth);
                 if (downedMonster >= enemyCount) {
                     printf("\n=== VICTORY ===\n");
@@ -414,14 +434,19 @@ int initCombat(Game *game) {
             }
         }
         int targetIdx = aliveChampions[rand() % aliveCount];
-        game->champion[targetIdx].health -= localEnemies[monsterIndex].damage;
+        int damage = localEnemies[monsterIndex].damage;
+        if (rand() % 100 < CRIT_CHANCE) {
+            damage *= CRIT_MULTIPLIER;
+            printf("\n*CRITICAL HIT!*\n");
+        }
+        game->champion[targetIdx].health -= damage;
         if (game->champion[targetIdx].health <= 0) {
             game->champion[targetIdx].health = 0;
             aliveCount--;
         }
-        printf("\n%s attacks Champion %d for %d damage! (HP: %d/%d)\n",
+        printf("%s attacks Champion %d for %d damage! (HP: %d/%d)\n",
                localEnemies[monsterIndex].name, targetIdx + 1, 
-               localEnemies[monsterIndex].damage,
+               damage,
                game->champion[targetIdx].health, 
                game->champion[targetIdx].maxHealth);
         if (aliveCount == 0) {

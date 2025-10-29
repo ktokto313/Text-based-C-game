@@ -1,9 +1,9 @@
  A text based C game in terminal written to show skill learnt in OSG202 (FPTU)
 
-The rest is ChatGPT gen
-
-Disclaimer: the combat.c file is not at the best shape and merged into main without reviewing properly, it just works for our interest at the time being.
+Disclaimer: the combat.c file is not at its best shape and merged into main without reviewing properly, it just works for our interest at the time being.
  
+The rest is ChatGPT generated from our project proposal
+
  # 🧙‍♂️ Text-Based Turn-Based RPG (C Language)
 
 A console-based **turn-based RPG** written in pure C.  
