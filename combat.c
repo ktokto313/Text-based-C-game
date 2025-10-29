@@ -150,7 +150,7 @@ void useSkill(Champion *c, Game *game, Monster enemies[], int enemyCount) {
                 int damage = ls->value;
                 if (rand() % 100 < CRIT_CHANCE) {
                     damage *= CRIT_MULTIPLIER;
-                    printf("*CRITICAL HIT!* ");
+                    printf("*CRITICAL HIT!*\n");
                 }
                 enemies[target].health -= damage;
                 if (enemies[target].health < 0) enemies[target].health = 0;
@@ -167,7 +167,7 @@ void useSkill(Champion *c, Game *game, Monster enemies[], int enemyCount) {
                 int damage = ls->value;
                 if (rand() % 100 < CRIT_CHANCE) {
                     damage *= CRIT_MULTIPLIER;
-                    printf("*CRITICAL HIT!* ");
+                    printf("*CRITICAL HIT!*\n");
                 }
                 if (ls->hits == -1) {
                     for (int i = 0; i < enemyCount; i++) {
@@ -364,7 +364,7 @@ int initCombat(Game *game) {
                 int damage = game->champion[championIndex].damage;
                 if (rand() % 100 < CRIT_CHANCE) {
                     damage *= CRIT_MULTIPLIER;
-                    printf("*CRITICAL HIT!* ");
+                    printf("*CRITICAL HIT!*\n");
                 }
                 localEnemies[target].health -= damage;
                 if (localEnemies[target].health <= 0) {
@@ -433,32 +433,25 @@ int initCombat(Game *game) {
                 aliveChampions[aliveCount++] = i;
             }
         }
-        if (aliveCount == 0) {
-            printf("\n=== DEFEAT ===\n");
-            printf("All champions defeated!\n");
-            game->initialized = 0;
-            return 0;
-        }
         int targetIdx = aliveChampions[rand() % aliveCount];
         int damage = localEnemies[monsterIndex].damage;
         if (rand() % 100 < CRIT_CHANCE) {
             damage *= CRIT_MULTIPLIER;
-            printf("*CRITICAL HIT!* ");
+            printf("\n*CRITICAL HIT!*\n");
         }
         game->champion[targetIdx].health -= damage;
         if (game->champion[targetIdx].health <= 0) {
             game->champion[targetIdx].health = 0;
-            woundedChampions++;
+            aliveCount--;
         }
-        printf("\n%s attacks Champion %d for %d damage! (HP: %d/%d)\n",
+        printf("%s attacks Champion %d for %d damage! (HP: %d/%d)\n",
                localEnemies[monsterIndex].name, targetIdx + 1, 
                damage,
                game->champion[targetIdx].health, 
                game->champion[targetIdx].maxHealth);
-        if (woundedChampions >= 3) {
+        if (aliveCount == 0) {
             printf("\n=== DEFEAT ===\n");
             printf("All champions defeated!\n");
-            game->initialized = 0;
             return 0;
         }
         monsterIndex++;
